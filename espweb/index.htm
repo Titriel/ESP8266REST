@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP8266-REST</title>
+    <link rel="stylesheet" href="main.css"></link>
+  </head>
+  <body>
+    <div class = labeled>
+      <label for="Config">Config:</label>
+      <select name="Config" id="Config" onchange="changeconfig()"></select>
+    </div>    <div class = labeled>
+      <label for="IP">ESP8266-IP:</label>
+      <input type="text" id="IP" name="IP">
+    </div>
+    <div class = labeled>
+      <label for="Pass">Pass:</label>
+      <input type="text" id="Pass" name="Pass" onchange="changeedpass()">
+    </div>
+    <div class = labeled>
+      <label for="LSI">LSI Code:</label>
+      <input type="text" id="LSI" name="LSI" value="111" onkeyup="this.value = minmax(this.value, 0, 255)">
+    </div>
+      <button type="button" onclick="dorequest('/digital','PATCH','{``LSI``: '+document.getElementById('LSI').value+'}')">Set LSI</button>
+      <button type="button" onclick="dorequest('/digital','PATCH','{``LSIon``: true}')">LSI dauer an</button>
+      <button type="button" onclick="dorequest('/digital','PATCH','{``LSIon``: false}')">LSI dauer aus</button>            
+    <br><br>
+      <h2>The XMLHttpRequest Object</h2>
+      <button type="button" onclick="dorequest()">Request Session</button>
+      <button type="button" onclick="dorequest('/','DELETE')">Close Session</button>
+      <button type="button" onclick="dorequest('/','POST','{``Hallo``: ``Fritz``}')">Change Content</button>
+      <button type="button" onclick="dorequest('/config')">Get Config</button>
+      <button type="button" onclick="dorequest('/config','DELETE')">Factory setting</button>
+      <button type="button" onclick="dorequest('/config','PATCH','{``ssid``: ``R-Tron-EG``, ``pass``: ``poiuztre``}')">New Settings/Restart</button>
+      <button type="button" onclick="dorequest('/ds18b20')">Status ds18b20</button>      
+      <button type="button" onclick="dorequest('/ds18b20','POST','{``unit``: ``C[elsius]``}')">Temperaturen</button>
+      <button type="button" onclick="dorequest('/ds18b20','PUT','{``enable``: true}')">Enabel ds18b20</button>
+      <button type="button" onclick="dorequest('/ds18b20','DELETE')">Disabel ds18b20</button>
+    </div>
+    <div class = labeled>
+      <label id="linfo" for="info"></label>
+      <textarea id="info" name="info" rows="20" cols="120"></textarea>
+    </div>
+    <script src="lib.js"></script>
+    <script src="conf.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
