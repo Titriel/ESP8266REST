@@ -12,7 +12,13 @@ loadconfig()
 
 function handelres(call){
   if (call.readyState == 4) {
-    document.getElementById("info").value = call.responseText;
+    let restext = "Statuscode: " + 
+                  call.status +
+                  "\r\nLänge: " +
+                  call.responseText.length.toString() +
+                  "\r\n" +
+                  call.responseText;
+    document.getElementById("info").value = restext;
     jresponce = JSON.parse(call.responseText);
     Auth = md5(jresponce.UUID + SysHash);
     console.log(jresponce.UUID);

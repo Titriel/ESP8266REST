@@ -1,71 +1,82 @@
 //--- API Subrourines ---
-void preresponce(bool legal = true){
-  jroot.clear();
-  jdoc.set(jroot);
-  gtString = makeUUID(String(now() + String(millis())));
-  jroot["UUID"] = gtString;
+void preresponce(AsyncWebServerRequest *httpreq, JsonObject &jroot, bool legal = true){
+  String temp = makeUUID(String(now() + String(millis())));
+  jroot["UUID"] = temp;
   jroot["UTC"] = TimeStamp("none");
   if(legal){
-    String From = headerdict["From"].as<String>();
-    gtString = makeMD5(gtString+SysHash, false);
-    keydict[From] = gtString;
-    gtString += "@" + From;
-    // Serial.println ( gtString );
+    String From = httpreq->header("From");
+    temp = makeMD5(temp+SysHash, false);
+    keydict[From] = temp;
+    temp += "@" + From;
   }
 }
 
-void jsonsend(int code){
-  gtString = "";
-  serializeJsonPretty(jdoc, gtString);
-  server.send(code, "application/json", gtString);  
+void rescors(AsyncWebServerResponse *response, String allwori = "*"){
+  response->addHeader("Access-Control-Allow-Origin", allwori);
+  response->addHeader("Access-Control-Allow-Methods", "*");
+  response->addHeader("Access-Control-Allow-Headers", "*");
 }
 
-void d_httprq(){
+void jtextsend(AsyncWebServerRequest *httpreq, String &temp, int code){
+  if(httpreq->hasHeader("Origin")){
+    AsyncWebServerResponse *response = httpreq->beginResponse(code, "application/json", temp);
+    rescors(response, httpreq->header("Origin"));
+    httpreq->send(response);
+  }else{
+    httpreq->send(code, "application/json", temp);
+  }
+}
+
+void jsonsend(AsyncWebServerRequest *httpreq, DynamicJsonDocument &jbuf, int code){
+  String temp;
+  serializeJsonPretty(jbuf, temp);
+  jtextsend(httpreq, temp, code);
+}
+
+void d_httprq(AsyncWebServerRequest *httpreq, JsonObject &jroot){
   JsonObject request = jroot.createNestedObject("request");
-  request["uri"] = server.uri();
-  request["method"] = server.method();
+  request["uri"] = httpreq->url();
+  request["method"] = httpreq->method();
   JsonObject args = request.createNestedObject("args");
-  for (uint8_t i = 0; i < server.args(); i++) {
-    args[server.argName(i)] = server.arg(i);
+  for (uint8_t i = 0; i < httpreq->params(); i++) {
+    AsyncWebParameter* p = httpreq->getParam(i);
+    args[p->name()] = p->value();
   }
   JsonObject headers = request.createNestedObject("headers");
-  for (uint8_t i = 2; i < server.headers(); i++) {
-    headers[server.headerName(i)] = server.header(i);
+  for (uint8_t i = 0; i < httpreq->headers(); i++) {
+    headers[httpreq->headerName(i)] = httpreq->header(i);
   }  
 }
 
-bool postrequest(bool ns = false){  
-  if (server.method() == HTTP_OPTIONS){
-    server.sendHeader("Access-Control-Allow-Methods", "*");
-    server.sendHeader("Access-Control-Allow-Headers", "*");
-    server.send(204);
+bool postrequest(AsyncWebServerRequest *httpreq, bool ns = false){  
+  if (httpreq->method() == HTTP_OPTIONS){
+    AsyncWebServerResponse *response = httpreq->beginResponse(204);
+    rescors(response);
+    httpreq->send(response);
     return false;
   }
-  gtString = "";
-  String From = "";   
-  for (byte i = 2; i < server.headers(); i++) {
-    headerdict[server.headerName(i)] = server.header(i);
-  } 
-  gtString = headerdict["X-Auth"].as<String>();;
-  From = headerdict["From"].as<String>();;
+  DynamicJsonDocument jbuf(1536);
+  JsonObject jroot = jbuf.to<JsonObject>(); 
+  String temp = "";
+  String From = "";
+  if(httpreq->hasHeader("From")){
+    From = httpreq->header("From");
+  }
+  if(httpreq->hasHeader("X-Auth")){
+    temp = httpreq->header("X-Auth");
+  }
   if(ns){
-    String temp = makeMD5(SysHash+From, false);
-    //Serial.println(temp);
     if ((keydict.size() > 4) && !keydict.containsKey(From)){
-      preresponce(false);
+      preresponce(httpreq, jroot, false);
       jroot["msg"] = "Max sessions (5) reatched !";
-      jsonsend(503);
+      jsonsend(httpreq, jbuf, 503);
       return false;
-    }else if(gtString == temp){
+    }else if(temp == makeMD5(SysHash+From, false)){
       return true;
     }
   }else{
     if(keydict.containsKey(From)){
-      String temp = keydict[From].as<String>();
-      if (temp == gtString){
-        for (byte i = 0; i < server.args(); i++) {
-          if (server.argName(i) == "plain") deserializeJson(jdoc, server.arg(i));
-        }        
+      if (temp == keydict[From].as<String>()){        
         return true;
       }else{
         keydict.remove(From);
@@ -73,53 +84,64 @@ bool postrequest(bool ns = false){
       }
     }
   }
-  preresponce(false);
+  preresponce(httpreq, jroot, false);
   jroot["msg"] = "No Session for " + From + ".";
-  d_httprq();
-  jsonsend(401);
+  d_httprq(httpreq, jroot);
+  jsonsend(httpreq, jbuf, 401);
   return false;
 }
-//-- Handler Systemcals --
 //--- Default Handler for unused Mountpoints ---
-void handleNotFound() {
-  if (postrequest()){
-    preresponce();
-    jroot["msg"] = "None supportet call.";
-    d_httprq();
-    jsonsend(404);
-  }
+void defaulthandler(AsyncWebServerRequest *httpreq, int code = 404, String msg = "None supportet call."){
+  if (postrequest(httpreq)){
+    DynamicJsonDocument jbuf(1536);
+    JsonObject jroot = jbuf.to<JsonObject>();
+    preresponce(httpreq, jroot);
+    jroot["msg"] = msg;
+    d_httprq(httpreq, jroot);
+    jsonsend(httpreq, jbuf, code);
+  }  
 }
+void onRequest(AsyncWebServerRequest *httpreq){
+  defaulthandler(httpreq);
+}
+void onBody(AsyncWebServerRequest *httpreq, uint8_t *data, size_t len, size_t index, size_t total){
+  defaulthandler(httpreq);
+}
+//-- Handler Systemcals --
 //--- Handler Session begin/distroy ---
-void handleSession() {
-  switch (server.method()){
+void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
+  JsonObject jreq = jvar.as<JsonObject>();
+  DynamicJsonDocument jbuf(128);
+  JsonObject jroot = jbuf.to<JsonObject>();
+  switch (httpreq->method()){
     case HTTP_GET:{
-      if (postrequest(true)){
-        preresponce();
+      if (postrequest(httpreq, true)){
+        preresponce(httpreq, jroot);
         jroot["msg"] = "Session established.";
-        jsonsend(201);
+        jsonsend(httpreq, jbuf, 201);
       }
       return;
     }
     case HTTP_DELETE:{
-      if (postrequest()){
-        preresponce();
-        gtString = headerdict["From"].as<String>();
-        if (keydict.containsKey(gtString)){
-          keydict.remove(gtString);
+      if (postrequest(httpreq)){
+        preresponce(httpreq, jroot);
+        String temp = httpreq->header("From");
+        if (keydict.containsKey(temp)){
+          keydict.remove(temp);
           sysdoc.garbageCollect();
         }
         jroot["msg"] = "Session deleted.";        
-        jsonsend(202);
+        jsonsend(httpreq, jbuf, 202);
       }
       return;
     }    
     default:{
-      handleNotFound();
+      defaulthandler(httpreq);
       return;
     }
   }
 }
-void aktualsysset(){
+void aktualsysset(JsonObject &jroot){
   jroot["ssid"] = ssid;
   //passwort
   jroot["APssid"] = AP_SSID;
@@ -128,173 +150,216 @@ void aktualsysset(){
   //SysHash
   JsonArray APnearBy = jroot.createNestedArray("APnearBy");
   byte i = 0;
-  gtString = pp_auth;
-  while ( gtString != "" ){
-    APnearBy.add(gtString.substring(0,gtString.indexOf('\n')));
-    gtString = gtString.substring(gtString.indexOf('\n')+1);
+  String temp = pp_auth;
+  while ( temp != "" ){
+    APnearBy.add(temp.substring(0,temp.indexOf('\n')));
+    temp = temp.substring(temp.indexOf('\n')+1);
     i++;
   }
+  jroot["heap"] = String(ESP.getFreeHeap());
 }
-void dosysset(){
+void dosysset(AsyncWebServerRequest *httpreq, JsonObject &jdoc){
   if(jdoc.containsKey("ssid")) ssid = jdoc["ssid"].as<String>();
   if(jdoc.containsKey("pass")) passwort = jdoc["pass"].as<String>();
   if(jdoc.containsKey("APssid")) AP_SSID = jdoc["APssid"].as<String>();
   if(jdoc.containsKey("APpass")) AP_Passwort = jdoc["APpass"].as<String>();
   if(jdoc.containsKey("ntp")) ntpServerName = jdoc["ntp"].as<String>();
   if(jdoc.containsKey("hash")) SysHash = jdoc["hash"].as<String>();
-  if(jdoc.containsKey("deltahash")) SysHash = makeMD5(jdoc["deltahash"].as<String>() + SysHash + headerdict["From"].as<String>(),false);
+  if(jdoc.containsKey("deltahash")) SysHash = makeMD5(jdoc["deltahash"].as<String>() + SysHash + httpreq->header("From"),false);
 }
-void handleConfig() {
-  if (postrequest()){
+void handleConfig(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty) {
+  if (postrequest(httpreq)){
+    JsonObject jreq = jvar.as<JsonObject>();
+    DynamicJsonDocument jbuf(1536);
+    JsonObject jroot = jbuf.to<JsonObject>();    
     String msg = "."; 
-    switch (server.method()){
+    switch (httpreq->method()){
       case HTTP_GET:{
-        preresponce();
+        preresponce(httpreq, jroot);
         jroot["msg"] = "Loaded settings.";
-        aktualsysset();
-        jsonsend(200);
+        aktualsysset(jroot);
+        jsonsend(httpreq, jbuf, 200);
         return;
       }
       case HTTP_POST:{
-        preresponce();
+        preresponce(httpreq, jroot);
         jroot["msg"] = "Restarting.";        
-        jsonsend(200);
+        jsonsend(httpreq, jbuf, 200);
         runlevel = RL_Warmstart;
         return;
       }
       case HTTP_PATCH:
         msg = " and restart.";
       case HTTP_PUT:{
-        dosysset();
-        preresponce();
+        dosysset(httpreq, jreq);
+        preresponce(httpreq, jroot);
         jroot["msg"] = "Update config" + msg;
-        aktualsysset();
-        jsonsend(201);
+        aktualsysset(jroot);
+        jsonsend(httpreq, jbuf, 201);
         makeConf();
-        if(server.method()==HTTP_PATCH) runlevel = RL_Warmstart;        
+        if(httpreq->method()==HTTP_PATCH) runlevel = RL_Warmstart;        
         return;
       }
       case HTTP_DELETE:{
-        preresponce();
+        preresponce(httpreq, jroot);
         jroot["msg"] = "Facktory reset.";
         SetAPvar();
-        aktualsysset();
-        jsonsend(202);
+        aktualsysset(jroot);
+        jsonsend(httpreq, jbuf, 202);
         makeConf();
         runlevel = RL_Warmstart;
         return;
       }      
       default:{
-        handleNotFound();
+        defaulthandler(httpreq);
         return;
       }
     }
   }
 }
-void handleDigital() {
-  if (postrequest()){ 
-    switch (server.method()){
+void handleDigital(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {  
+  if (postrequest(httpreq)){
+    JsonObject jreq = jvar.as<JsonObject>();
+    DynamicJsonDocument jbuf(128);
+    JsonObject jroot = jbuf.to<JsonObject>();     
+    switch (httpreq->method()){
       case HTTP_GET:{
-        preresponce();
+        preresponce(httpreq, jroot);
         jroot["msg"] = "Loaded settings.";
-        aktualsysset();
-        jsonsend(200);
+        aktualsysset(jroot);
+        jsonsend(httpreq, jbuf, 200);
         return;
       }
       case HTTP_PATCH:{
-        if(jdoc.containsKey("LSI")){
-          LSIp = jdoc["LSI"].as<unsigned char>();
+        if(jreq.containsKey("LSI")){
+          LSIp = jreq["LSI"].as<unsigned char>();
           if(LSI_State == 0) LSI_State = 0x0F;
         }
-        if(jdoc.containsKey("LSIon")){
-          LSI_State = (jdoc["LSIon"].as<bool>())?0xF1:0xFF;
+        if(jreq.containsKey("LSIon")){
+          LSI_State = (jreq["LSIon"].as<bool>())?0xF1:0xFF;
         }
-        preresponce();
+        preresponce(httpreq, jroot);
         jroot["msg"] = "LSI modified.";
-        jsonsend(201);
+        jsonsend(httpreq, jbuf, 201);
         return;
       }      
       default:{
-        handleNotFound();
+        defaulthandler(httpreq);
         return;
       }
     }
   }
 }
 
-void aktualDs18b20(){
+void aktualDs18b20(JsonObject &jroot){
   jroot["enabeled"] = bool ISen_ds18b20;
   jroot["GPIO2used"] = bool ISused_D2;
 }
-void handleDs18b20() {
-  if (postrequest()){ 
-    switch (server.method()){
+void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {  
+  if (postrequest(httpreq)){
+    JsonObject jreq = jvar.as<JsonObject>();
+    DynamicJsonDocument jbuf(256);
+    JsonObject jroot = jbuf.to<JsonObject>();    
+    switch (httpreq->method()){
       case HTTP_GET:{
-        preresponce();
+        preresponce(httpreq, jroot);
         jroot["msg"] = "Ds18b20 settings.";
-        aktualDs18b20();
-        jsonsend(200);
+        aktualDs18b20(jroot);
+        jsonsend(httpreq, jbuf, 200);
         return;
       }      
       case HTTP_POST:{
         String unit = "C";
-        if(jdoc.containsKey("unit")){
-          unit = jdoc["unit"].as<String>();
+        if(jreq.containsKey("unit")){
+          unit = jreq["unit"].as<String>();
           if((toupper(unit[0]) != 'F') and (toupper(unit[0]) != 'C')) unit = "C";
         }
-        preresponce();
+        preresponce(httpreq, jroot);
         if ISen_ds18b20{
           jroot["msg"] = "Read temperatures.";
           jroot["unit"] = unit;
           jroot["data"] = "@";
-          gtString = "";
-          serializeJsonPretty(jdoc, gtString);
-          gtString  = gtString.substring(0,gtString.indexOf('@')-1) + "{\r\n";
-          gtString += readTemperatur("    \"" , "" , "\": " , ",\r\n" , "    \"msg\": \"", (toupper(unit[0]) == 'F')) + "\"\r\n  }\r\n}";
-          server.send(200, "application/json", gtString);
+          String temp = "";
+          serializeJsonPretty(jbuf, temp);
+          temp  = temp.substring(0,temp.indexOf('@')-1) + "{\r\n";
+          temp += readTemperatur("    \"" , "" , "\": " , ",\r\n" , "    \"msg\": \"", (toupper(unit[0]) == 'F')) + "\"\r\n  }\r\n}";
+          jtextsend(httpreq, temp, 200);
         }else{
           jroot["msg"] = "ds18b20 is not enabeld.";
-          aktualDs18b20();
-          jsonsend(428);
+          aktualDs18b20(jroot);
+          jsonsend(httpreq, jbuf, 428);
         }
         return;
       }
       case HTTP_PUT:{
-        if(!ISused_D2 && jdoc.containsKey("enable") && jdoc["enable"].as<bool>()){
+        if(!ISused_D2 && jreq.containsKey("enable") && jreq["enable"].as<bool>()){
           use_D2(true);
           en_ds18b20(true);
         }
-        preresponce();
+        preresponce(httpreq, jroot);
         if ISen_ds18b20{
           jroot["msg"] = "ds18b20 is enabeld.";
-          aktualDs18b20();
-          jsonsend(201);
+          aktualDs18b20(jroot);
+          jsonsend(httpreq, jbuf, 201);
         }else{
           jroot["msg"] = "GPIO2 is in use.";
-          aktualDs18b20();
-          jsonsend(409);
+          aktualDs18b20(jroot);
+          jsonsend(httpreq, jbuf, 409);
         }
         return;
       }
       case HTTP_DELETE:{
-        preresponce();
+        preresponce(httpreq, jroot);
         if ISen_ds18b20{
           use_D2(false);
           en_ds18b20(false);
         }
         jroot["msg"] = "ds18b20 is disabeld.";
-        aktualDs18b20();
-        jsonsend(202);
+        aktualDs18b20(jroot);
+        jsonsend(httpreq, jbuf, 202);
         return;
       }                          
       default:{
-        handleNotFound();
+        defaulthandler(httpreq);
         return;
       }
     }
   }
 }    
-void webStart() {
+
+void webStart(){
+  AsyncCallbackJsonWebHandler *handler;
+
+  server.on("/", HTTP_OPTIONS | HTTP_GET | HTTP_DELETE, [](AsyncWebServerRequest *httpreq){handleSession(httpreq);});  
+  handler = new AsyncCallbackJsonWebHandler("/", [](AsyncWebServerRequest *httpreq, JsonVariant &json) {
+    handleSession(httpreq, json);
+  });
+  server.addHandler(handler);
+
+  server.on("/config", HTTP_OPTIONS | HTTP_GET | HTTP_DELETE, [](AsyncWebServerRequest *httpreq){handleConfig(httpreq);});  
+  handler = new AsyncCallbackJsonWebHandler("/config", [](AsyncWebServerRequest *httpreq, JsonVariant &json) {
+    handleConfig(httpreq, json);
+  });
+  server.addHandler(handler);
+
+  server.on("/digital", HTTP_OPTIONS | HTTP_GET | HTTP_DELETE, [](AsyncWebServerRequest *httpreq){handleDigital(httpreq);});  
+  handler = new AsyncCallbackJsonWebHandler("/digital", [](AsyncWebServerRequest *httpreq, JsonVariant &json) {
+    handleDigital(httpreq, json);
+  });
+  server.addHandler(handler);
+
+    server.on("/ds18b20", HTTP_OPTIONS | HTTP_GET | HTTP_DELETE, [](AsyncWebServerRequest *httpreq){handleDs18b20(httpreq);});  
+  handler = new AsyncCallbackJsonWebHandler("/ds18b20", [](AsyncWebServerRequest *httpreq, JsonVariant &json) {
+    handleDs18b20(httpreq, json);
+  });
+  server.addHandler(handler);
+
+  server.onRequestBody(onBody);
+  server.onNotFound(onRequest);
+  server.begin();
+}
+
+/*void webStart() {
   server.on("/", handleSession);
   server.on("/config", handleConfig);
   server.on("/digital", handleDigital);
@@ -302,9 +367,5 @@ void webStart() {
   server.onNotFound(handleNotFound);
   server.enableCORS(true);
   server.collectHeaders("User-Agent", "From", "X-Auth");
-  headerdict["X-Auth"] = "";
-  headerdict["From"] = "";  
-  gtString = "{\"hello\":\"world\"}";
-  deserializeJson(jdoc, gtString);
   server.begin();
-}
+}*/

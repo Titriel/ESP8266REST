@@ -9,10 +9,8 @@ void setup() {
 }
 
 void loop() {
-  if (runlevel > 0x0F){server.handleClient();}
   if (overmilis(lastget,10000)){
     if(ISen_ds18b20 && (getTemperatur(false) == 0)){lastget = millis();}
-    if (runlevel > 0x0F){server.handleClient();}
   }
   switch (runlevel){
   case RL_Warmstart:{
@@ -60,7 +58,7 @@ void loop() {
       Serial.print(F("dBm "));
       if (WiFi.encryptionType(i) != ENC_TYPE_NONE){Serial_printPGM(TX_NeedPass);}
       Serial.println ( "" );
-    }      
+    }
   break;}
   case RL_APreachable:{
     //---In AP einloggen--------------------------------------------------------------------
@@ -145,7 +143,7 @@ void loop() {
   case RL_StopAlltoRes:{
     //---Alles stoppen um neu zu starten-------------------------------------------------------
     SPIFFS.end();
-    server.stop();
+    server.end();
     WiFi.disconnect();
     ReIni();
   break;}  

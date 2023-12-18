@@ -1,14 +1,13 @@
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
-#include <ESP8266WebServer.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebSrv.h>
 #include <ESP8266mDNS.h>
-#include <ESP8266HTTPClient.h>
 #include <WiFiUdp.h>
+#include <AsyncJson.h>
 #include <ArduinoJson.h>
 #include <OneWire.h>
 #include <FS.h>
 #include <TimeLib.h>
-
 //---Anpassung für Hardwareaufbau------------------------------
 #define ledOn false //je nach Beschaltung anpassen
 #define ledOff true //je nach Beschaltung anpassen
@@ -18,12 +17,12 @@
 String gtString = "";
 #define s_uniBuf  3380
 char uniBuf[s_uniBuf];  //universal Buffer für Subs kann in jeder Sub benutzt werden 3380
-StaticJsonDocument<3000> jdoc;
-JsonObject jroot = jdoc.to<JsonObject>();
+JsonVariant jempty;
+//StaticJsonDocument<3000> jdoc;
+//JsonObject jroot = jdoc.to<JsonObject>();
 StaticJsonDocument<1000> sysdoc;
 JsonObject sysdict = sysdoc.to<JsonObject>();
 JsonObject keydict = sysdict.createNestedObject("keydict");
-JsonObject headerdict = sysdict.createNestedObject("headerdict");
 
 #define led 0    // on GPIO0
 static const char Unset[] = ";}na]{";
@@ -91,7 +90,7 @@ uint32_t SerInfoT;
 //------MDNS-------------------------------------------------------------------------
 MDNSResponder mdns;
 //------HTTP-Server------------------------------------------------------------------
-ESP8266WebServer server(80);
+AsyncWebServer server(80);
 //------für LED StatusInfo-----------------------------------------------------------
 byte LSIp = 0;
 byte LSI_Digit,LSI_State; 
