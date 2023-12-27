@@ -69,6 +69,113 @@ void Serial_printlnPGM(const char* x){
   Serial.println(C(x));
 }
 
+byte base64byte(char wert){
+  if (wert > 96){
+    wert -= 71;
+  }else if (wert > 64){
+    wert -= 65;
+  }else if (wert > 47){
+    wert += 4;
+  }else if (wert = '+'){
+    wert = 62;
+  }else{
+    wert = 63;
+  }
+  return wert;
+}
+bool SerialByteWrite(HardwareSerial &serial){
+  while (serial.availableForWrite() > 2){
+    unsigned int itemp = 0;
+    byte *btemp = (byte *)&itemp;
+    char pb = -1;
+    uniBufout += 4;
+    for (byte i = 0; i < 4; i++){
+      if (uniBuf[--uniBufout] == '='){
+        pb = i;
+      }else{
+        btemp[i] = base64byte(uniBuf[uniBufout]);
+      }
+      itemp = itemp << 2;        
+    }
+    for (byte i = 3; i > pb; i--){
+      serial.write(btemp[i]);
+    }
+    uniBuf[uniBufout] = 0;
+    uniBufout += 4;
+    if (uniBuf[uniBufout] != 0) return false;
+  }
+  uniBufout = uniBufoutstart;
+  return true;
+}
+
+char base64char(byte wert){
+  if (wert < 26){
+    wert += 65;
+  }else if (wert < 52){
+    wert += 71;
+  }else if (wert < 62){
+    wert -= 4;
+  }else if (wert == 62){
+    wert = '+';
+  }else{
+    wert = '/';
+  }
+  return wert;
+}
+bool SerialByteRead(){
+  byte pb = 2;
+  unsigned int itemp = 0;
+  byte *btemp = (byte *)&itemp; 
+  if (uniBufin > 0){
+    if (uniBuf[uniBufin-1] == '='){
+      uniBufin--;
+      pb = 1;
+      if (uniBuf[--uniBufin] != '='){
+        pb = 0;
+        btemp[0] = uniBuf[uniBufin] << 2;
+      }
+      btemp[1] = uniBuf[--uniBufin];
+      itemp = itemp << 2;
+      btemp[2] = uniBuf[--uniBufin];
+      itemp = itemp << 2;
+    }
+  }
+  bool dosend = true;
+  if (Serial.available() == 0) delay((14400/serial0speed) + 1);
+  while (Serial.available() > 0) {
+    dosend = false;
+    byte intemp = Serial.read();
+    if ISen_LoopTXD Serial.write(intemp);
+    if ( ISen_TXD1 && ISen_LoopTXD )Serial1.write(intemp);
+    btemp[pb--] = intemp;
+    if (pb == 255){
+      pb = 2;
+      for ( byte i = 0; i < 4; i++){ 
+        itemp = itemp << 6;
+        uniBuf[uniBufin++] = base64char(btemp[3]);
+        btemp[3] = 0;
+      }
+    }
+  } 
+  if (uniBufin == 0) dosend = false;
+  if (uniBufin > (uniBufoutstart - 96)) dosend = true;
+  if (pb < 2){
+    for ( byte i = 0; i < 4; i++){
+      if (i < (3 - pb)){
+        itemp = itemp << 6;
+        if (dosend){
+          uniBuf[uniBufin++] = base64char(btemp[3]);
+        }else{
+          uniBuf[uniBufin++] = btemp[3];
+        }
+        btemp[3] = 0;
+      }else{
+        uniBuf[uniBufin++] = '=';
+      }
+    }
+  }
+  return dosend;
+}
 boolean SerialRead(){
   char g;
   if (Serial.available() > 0) {
@@ -233,89 +340,90 @@ String readTemperatur(String PreString, String Space, String Tab, String Lineend
     FHdl = SPIFFS.open(FPSTR(fm_ct), "r");
     dbbytes += FHdl.size();
   }
+  char myBuf[dbbytes + 1];
   if (dbbytes > dboffset){
-    FHdl.readBytes(&uniBuf[dboffset], dbbytes-dboffset);
+    FHdl.readBytes(&myBuf[dboffset], dbbytes-dboffset);
     FHdl.close();
   }
-  uint16_t* DataPointer = (uint16_t*)&uniBuf[0];
-  uint16_t* DataLength = (uint16_t*)&uniBuf[2];
+  uint16_t* DataPointer = (uint16_t*)&myBuf[0];
+  uint16_t* DataLength = (uint16_t*)&myBuf[2];
   *DataPointer = dbbytes;
   *DataLength = 0;    
   while (!overmilis(lastget,750)){delay(1);}    
-while(ds.search(addr)) {
-  Hstring += PreString;
-  for( i = 0; i < 8; i++) {
-    Hstring += Space+byte2hex(addr[i]);
-  }
-  
-  if (OneWire::crc8(addr, 7) != addr[7]) {
-      Hstring = PreMsg + F("CRC - Error");
-      return Hstring;
-  }
- 
-  // the first ROM byte indicates which chip
-  switch (addr[0]) {
-    case 0x10:
-      type_s = 1;
-      break;
-    case 0x28:{
-      calib = 0;
-      type_s = 0;      
-      char* calibh;      
-      for (uint16_t i = dboffset; i < *DataPointer; i+=8){
-        if(*(byte*)&uniBuf[i+7] == addr[7]){
-          calibh = (char*)&uniBuf[i];
-          calib = *calibh;
-        }
-      }      
-      memcpy(&uniBuf[dbbytes],&addr[0],8);                 
-      calibh = (char*)&uniBuf[dbbytes];
-      *calibh = calib;
-      dbbytes += 8;
-      *DataLength += 8;      
-      break;}
-    case 0x22:
-      type_s = 0;
-      break;
-    default:
-      Hstring=PreMsg + F("Unknowen Device");
-      return Hstring;
-  } 
-  present = ds.reset();
-  ds.select(addr);    
-  ds.write(0xBE);         // Read Scratchpad
-
-  for ( i = 0; i < 9; i++) {           // we need 9 bytes
-    data[i] = ds.read();
-  }
-  // Convert the data to actual temperature
-  // because the result is a 16 bit signed integer, it should
-  // be stored to an "int16_t" type, which is always 16 bits
-  // even when compiled on a 32 bit processor.
-  int16_t raw = (data[1] << 8) | data[0];
-  if (type_s) {
-    raw = raw << 3; // 9 bit resolution default
-    if (data[7] == 0x10) {
-      // "count remain" gives full 12 bit resolution
-      raw = (raw & 0xFFF0) + 12 - data[6];
+  while(ds.search(addr)) {
+    Hstring += PreString;
+    for( i = 0; i < 8; i++) {
+      Hstring += Space+byte2hex(addr[i]);
     }
-  } else {
-    byte cfg = (data[4] & 0x60);
-    // at lower res, the low bits are undefined, so let's zero them
-    if (cfg == 0x00) raw = raw & ~7;  // 9 bit resolution, 93.75 ms
-    else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
-    else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
-    //// default is 12 bit resolution, 750 ms conversion time
+    
+    if (OneWire::crc8(addr, 7) != addr[7]) {
+        Hstring = PreMsg + F("CRC - Error");
+        return Hstring;
+    }
+  
+    // the first ROM byte indicates which chip
+    switch (addr[0]) {
+      case 0x10:
+        type_s = 1;
+        break;
+      case 0x28:{
+        calib = 0;
+        type_s = 0;      
+        char* calibh;      
+        for (uint16_t i = dboffset; i < *DataPointer; i+=8){
+          if(*(byte*)&myBuf[i+7] == addr[7]){
+            calibh = (char*)&myBuf[i];
+            calib = *calibh;
+          }
+        }      
+        memcpy(&myBuf[dbbytes],&addr[0],8);                 
+        calibh = (char*)&myBuf[dbbytes];
+        *calibh = calib;
+        dbbytes += 8;
+        *DataLength += 8;      
+        break;}
+      case 0x22:
+        type_s = 0;
+        break;
+      default:
+        Hstring=PreMsg + F("Unknowen Device");
+        return Hstring;
+    } 
+    present = ds.reset();
+    ds.select(addr);    
+    ds.write(0xBE);         // Read Scratchpad
+
+    for ( i = 0; i < 9; i++) {           // we need 9 bytes
+      data[i] = ds.read();
+    }
+    // Convert the data to actual temperature
+    // because the result is a 16 bit signed integer, it should
+    // be stored to an "int16_t" type, which is always 16 bits
+    // even when compiled on a 32 bit processor.
+    int16_t raw = (data[1] << 8) | data[0];
+    if (type_s) {
+      raw = raw << 3; // 9 bit resolution default
+      if (data[7] == 0x10) {
+        // "count remain" gives full 12 bit resolution
+        raw = (raw & 0xFFF0) + 12 - data[6];
+      }
+    } else {
+      byte cfg = (data[4] & 0x60);
+      // at lower res, the low bits are undefined, so let's zero them
+      if (cfg == 0x00) raw = raw & ~7;  // 9 bit resolution, 93.75 ms
+      else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
+      else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
+      //// default is 12 bit resolution, 750 ms conversion time
+    }
+    raw += Char2Int(calib);
+    celsius = (float)raw / 16.0;
+  //  fahrenheit = celsius * 1.8 + 32.0;
+    if(Fahrenheit){
+      Hstring +=Tab+String((float)(celsius * 1.8 + 32.0))+Lineend;
+    }else{
+      Hstring +=Tab+String((float)celsius)+Lineend;
+    }
   }
-  raw += Char2Int(calib);
-  celsius = (float)raw / 16.0;
-//  fahrenheit = celsius * 1.8 + 32.0;
-  if(Fahrenheit){
-    Hstring +=Tab+String((float)(celsius * 1.8 + 32.0))+Lineend;
-  }else{
-    Hstring +=Tab+String((float)celsius)+Lineend;
-  }
-}
   Hstring += PreMsg + F("No more devices.");
   ds.reset_search();
   return Hstring;

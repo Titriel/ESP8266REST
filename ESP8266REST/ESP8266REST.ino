@@ -17,6 +17,11 @@
 String gtString = "";
 #define s_uniBuf  3380
 char uniBuf[s_uniBuf];  //universal Buffer für Subs kann in jeder Sub benutzt werden 3380
+unsigned short uniBufin = 0;
+unsigned short uniBufoutstart = 1000;
+unsigned short uniBufout = uniBufoutstart;
+unsigned short uniBufdatastart = 2000;
+unsigned long serial0speed = 115200;
 JsonVariant jempty;
 //StaticJsonDocument<3000> jdoc;
 //JsonObject jroot = jdoc.to<JsonObject>();
@@ -77,6 +82,24 @@ byte IOused = 0;
 #define en_TOUT(state)       if(state) IFenabeld |= 0x40; else IFenabeld &= 0xBF;
 #define en_ADC(state)        if(state) IFenabeld |= 0x80; else IFenabeld &= 0x7F;
 byte IFenabeld = 0;
+
+#define ISen_xds18b20    ((SFenabeld & 0x01) != 0) //D2 Software
+#define ISen_xTXD1       ((SFenabeld & 0x02) != 0) //D2
+#define ISen_xHSPI       ((SFenabeld & 0x04) != 0) //D12,13,14,15
+#define ISen_xI2S1       ((SFenabeld & 0x08) != 0) //D12,13,14 Software
+#define ISen_xTWI        ((SFenabeld & 0x10) != 0) //D2,14 Software
+#define ISen_LoopTXD     ((SFenabeld & 0x20) != 0) //D5,14 Software
+#define ISen_LoopTXD1    ((SFenabeld & 0x40) != 0) //ADC
+#define ISen_SSE         ((SFenabeld & 0x80) != 0) //SSE
+#define en_xds18b20(state)    if(state) SFenabeld |= 0x01; else SFenabeld &= 0xFE;
+#define en_xTXD1(state)       if(state) SFenabeld |= 0x02; else SFenabeld &= 0xFD;
+#define en_xHSPI(state)       if(state) SFenabeld |= 0x04; else SFenabeld &= 0xFB;
+#define en_xI2S1(state)       if(state) SFenabeld |= 0x08; else SFenabeld &= 0xF7;
+#define en_xTWI(state)        if(state) SFenabeld |= 0x10; else SFenabeld &= 0xEF;
+#define en_LoopTXD(state)     if(state) SFenabeld |= 0x20; else SFenabeld &= 0xDF;
+#define en_LoopTXD1(state)    if(state) SFenabeld |= 0x40; else SFenabeld &= 0xBF;
+#define en_SSE(state)         if(state) SFenabeld |= 0x80; else SFenabeld &= 0x7F;
+byte SFenabeld = 0;
 boolean Inet;
 String ssid,passwort,AP_SSID,AP_Passwort;
 String SysHash = "";
@@ -91,6 +114,8 @@ uint32_t SerInfoT;
 MDNSResponder mdns;
 //------HTTP-Server------------------------------------------------------------------
 AsyncWebServer server(80);
+AsyncEventSource events("/events");
+unsigned int evid = 0;
 //------für LED StatusInfo-----------------------------------------------------------
 byte LSIp = 0;
 byte LSI_Digit,LSI_State; 
@@ -127,6 +152,13 @@ void SetAPvar(){
   SysHash = makeMD5(DefaultLogin,false);
 }
 void ReIni(){
+  if ISen_SSE {
+    events.close();
+    en_SSE(false);
+  }
+  serial0speed = 115200;
+  Serial.end();
+  Serial.begin ( serial0speed );
   LSI_State = 0x0FF;
   if (keydict.size() > 0){
     keydict.clear();

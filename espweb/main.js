@@ -8,6 +8,8 @@ var from = md5(ts.toString()).substring(0, 8);
 var SysHash = "";
 var Auth = "";
 var jresponce;
+var EvSo = false;
+document.getElementById("firstTab").click();
 loadconfig()
 
 function handelres(call){
@@ -21,32 +23,86 @@ function handelres(call){
     document.getElementById("info").value = restext;
     jresponce = JSON.parse(call.responseText);
     Auth = md5(jresponce.UUID + SysHash);
-    console.log(jresponce.UUID);
+    /*console.log(jresponce.UUID);
     console.log(call.getResponseHeader("Content-Type"));
     if (call.getAllResponseHeaders().indexOf("X-Token") >= 0) {
       console.log(call.getResponseHeader("X-Token"));
     }
-    console.log(call.status);
+    console.log(call.status);*/
   }
 }
 function dorequest(path = "/", methode = "GET", content = "{}") {
   let ip = document.getElementById("IP").value;
   xhttp.open(methode, "http://"+ip+path);
   xhttp.setRequestHeader("From",from);
+  let reqtext = "URL: http://" + ip+path + "\r\n";
+  reqtext += "Methode: " + methode + "\r\n";
+  reqtext += "Haeder From: " + from + "\r\n";
   if ((path == "/") && (methode == "GET")){
     xhttp.setRequestHeader("X-Auth", md5(SysHash+from));
+    reqtext += "Haeder X-Auth: " + md5(SysHash+from) + "\r\n";
   }else{
     xhttp.setRequestHeader("X-Auth",Auth);
+    reqtext += "Haeder X-Auth: " + Auth + "\r\n";
   }
   if ((methode == "POST") || (methode == "PUT") || (methode == "PATCH")){
     xhttp.setRequestHeader("Content-Type","application/json");
     xhttp.send(content.replaceAll('``','"'));
+    reqtext += JSON.stringify(JSON.parse(content.replaceAll('``','"')),undefined, 2);
+
   }else{
     xhttp.send();
   }
+  document.getElementById("req").value = reqtext;
   document.getElementById("linfo").innerHTML = "ESP8266-Response:";
   document.getElementById("info").value = "Abfrage gestartet.";
 }
+function startSSE(user, pass){
+  console.log(window.EventSource);
+  dorequest('/','PUT','{"user": "'+user+'", "pass": "'+pass+'"}');
+  if (!EvSo) {
+    setTimeout(aktSSE, 100);
+  }
+}
+function aktSSE(){
+  EvSo = true;
+  let ip = document.getElementById("IP").value;
+  var source = new EventSource("http://"+ip+'/events', {
+    withCredentials: true
+  });
+  source.addEventListener('open', function(e) {
+    document.getElementById("sse").value += "Events Connected\r\n";
+  }, false);
+
+  source.addEventListener('close', function(e) {
+    if (e.target.readyState != EventSource.OPEN) {
+      document.getElementById("sse").value += "Events Closed\r\n";
+    }
+  }, false);
+
+  source.addEventListener('error', function(e) {
+    if (e.target.readyState != EventSource.OPEN) {
+      document.getElementById("sse").value += "Events Disconnected\r\n";
+    }
+  }, false);
+
+  source.addEventListener('message', function(e) {
+    document.getElementById("sse").value += "message["+e.lastEventId+"]: "+e.data+"\r\n";
+  }, false);
+
+  source.addEventListener('Kawum', function(e) {
+    document.getElementById("sse").value += "Kawum["+e.lastEventId+"]: "+e.data+"\r\n";
+  }, false);
+
+  source.addEventListener('Serial0', function(e) {
+    let ser = JSON.parse(e.data);
+    if (typeof(ser.RxT) !== "undefined") {
+      document.getElementById("Serialres").value += atob(ser.RxT);
+    }
+    document.getElementById("sse").value += "Serial0["+e.lastEventId+"]: "+e.data+"\r\n";
+  }, false);
+}
+
 function loadconfig() {
   for (const [key, value] of Object.entries(jconfig)) {
     if(document.getElementById("IP").value == ""){

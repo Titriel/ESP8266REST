@@ -7,41 +7,104 @@
     <link rel="stylesheet" href="main.css"></link>
   </head>
   <body>
-    <div class = labeled>
-      <label for="Config">Config:</label>
-      <select name="Config" id="Config" onchange="changeconfig()"></select>
-    </div>    <div class = labeled>
-      <label for="IP">ESP8266-IP:</label>
-      <input type="text" id="IP" name="IP">
+    <h2>ESP8266-REST view</h2>
+    <table style="width:100%">
+      <tr>
+        <td>
+          <div class = labeled>
+            <label id="lreq" for="req">Request:</label>
+            <textarea id="req" name="req" rows="20" cols="80"></textarea>
+          </div>
+        </td>
+        <td>
+          <div class = labeled>
+            <label id="linfo" for="info"></label>
+            <textarea id="info" name="info" rows="20" cols="80"></textarea>
+          </div>
+        </td>
+        <td>
+          <div class = labeled>
+            <label id="lsse" for="sse">SSE-Massages:</label>
+            <textarea id="sse" name="sse" rows="20" cols="80"></textarea>
+          </div>
+        </td>
+      </tr>
+    </table>    
+    <div class="tab">
+      <button id="firstTab" class="tablinks" onclick="openTab(event, 'ConfigTab')">Device</button>
+      <button class="tablinks" onclick="openTab(event, 'SessionTab')">Session</button>
+      <button class="tablinks" onclick="openTab(event, 'SettingsTab')">Config</button>
+      <button class="tablinks" onclick="openTab(event, 'IOTab')">Digital I/O</button>
+      <button class="tablinks" onclick="openTab(event, 'SerialTab')">Serial</button>      
+      <button class="tablinks" onclick="openTab(event, 'DS18b20Tab')">DS18b20</button>
+      <button class="tablinks" onclick="openTab(event, 'Tokyo')">Tokyo</button>      
     </div>
-    <div class = labeled>
-      <label for="Pass">Pass:</label>
-      <input type="text" id="Pass" name="Pass" onchange="changeedpass()">
+    
+    <div id="ConfigTab" class="tabcontent">
+      <div class = labeled>
+        <label for="Config">Config:</label>
+        <select name="Config" id="Config" onchange="changeconfig()"></select>
+      </div>
+      <div class = labeled>
+        <label for="IP">ESP8266-IP:</label>
+        <input type="text" id="IP" name="IP">
+      </div>
+      <div class = labeled>
+        <label for="Pass">Pass:</label>
+        <input type="text" id="Pass" name="Pass" onchange="changeedpass()">
+      </div>
     </div>
-    <div class = labeled>
-      <label for="LSI">LSI Code:</label>
-      <input type="text" id="LSI" name="LSI" value="111" onkeyup="this.value = minmax(this.value, 0, 255)">
-    </div>
-      <button type="button" onclick="dorequest('/digital','PATCH','{``LSI``: '+document.getElementById('LSI').value+'}')">Set LSI</button>
-      <button type="button" onclick="dorequest('/digital','PATCH','{``LSIon``: true}')">LSI dauer an</button>
-      <button type="button" onclick="dorequest('/digital','PATCH','{``LSIon``: false}')">LSI dauer aus</button>            
-    <br><br>
-      <h2>The XMLHttpRequest Object</h2>
+
+    <div id="SessionTab" class="tabcontent">
+      <h3>Session</h3>
       <button type="button" onclick="dorequest()">Request Session</button>
       <button type="button" onclick="dorequest('/','DELETE')">Close Session</button>
-      <button type="button" onclick="dorequest('/','POST','{``Hallo``: ``Fritz``}')">Change Content</button>
+      <h3>SSE</h3>
+      <button type="button" onclick="startSSE('admin', 'admin')">Start SSE</button>
+      <button type="button" onclick="dorequest('/','POST','{``name``: ``Fritz``, ``string``: ``na und``,``event``: ``Kawum`` }')">Send to SSE</button>
+    </div>    
+
+    <div id="SettingsTab" class="tabcontent">
       <button type="button" onclick="dorequest('/config')">Get Config</button>
       <button type="button" onclick="dorequest('/config','DELETE')">Factory setting</button>
       <button type="button" onclick="dorequest('/config','PATCH','{``ssid``: ``R-Tron-EG``, ``pass``: ``poiuztre``}')">New Settings/Restart</button>
+    </div>    
+
+    <div id="IOTab" class="tabcontent">
+      <div class = labeled>
+        <label for="LSI">LSI Code:</label>
+        <input type="text" id="LSI" name="LSI" value="111" onkeyup="this.value = minmax(this.value, 0, 255)">
+      </div>
+      <button type="button" onclick="dorequest('/digital','PATCH','{``LSI``: '+document.getElementById('LSI').value+'}')">Set LSI</button>
+      <button type="button" onclick="dorequest('/digital','PATCH','{``LSIon``: true}')">LSI dauer an</button>
+      <button type="button" onclick="dorequest('/digital','PATCH','{``LSIon``: false}')">LSI dauer aus</button> 
+    </div>
+
+    <div id="SerialTab" class="tabcontent">
+      <button type="button" onclick="dorequest('/serial')">Status Serial</button>
+      <div class = labeled>
+        <label for="Serialsend">Seriel Send Data:</label>
+        <input type="text" id="Serialsend" name="Serialsend" size=123>
+      </div>
+      <button type="button" onclick="dorequest('/serial','POST','{``TxT``: ``'+btoa(document.getElementById('Serialsend').value)+'``}')">send to TxT</button>
+      <button type="button" onclick="dorequest('/serial','POST','{``useTxT1``: true, ``TxT``: ``'+btoa(document.getElementById('Serialsend').value)+'``}')">send to TxT1</button>
+      <div class = labeled>
+        <label for="Serialres">Serial Resive Data:</label>
+        <textarea id="Serialres" name="Serialres" rows="20" cols="120"></textarea>
+      </div>      
+    </div>
+
+    <div id="DS18b20Tab" class="tabcontent">
       <button type="button" onclick="dorequest('/ds18b20')">Status ds18b20</button>      
       <button type="button" onclick="dorequest('/ds18b20','POST','{``unit``: ``C[elsius]``}')">Temperaturen</button>
       <button type="button" onclick="dorequest('/ds18b20','PUT','{``enable``: true}')">Enabel ds18b20</button>
       <button type="button" onclick="dorequest('/ds18b20','DELETE')">Disabel ds18b20</button>
-    </div>
-    <div class = labeled>
-      <label id="linfo" for="info"></label>
-      <textarea id="info" name="info" rows="20" cols="120"></textarea>
-    </div>
+    </div>    
+    
+    <div id="Tokyo" class="tabcontent">
+      <h3>Tokyo</h3>
+      <p>Tokyo is the capital of Japan.</p>
+    </div>   
     <script src="lib.js"></script>
     <script src="conf.js"></script>
     <script src="main.js"></script>

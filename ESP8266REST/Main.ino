@@ -1,11 +1,21 @@
+void SSEjPair(const char* name, const char* value, const char* event = "os" ){
+  unsigned short l = strlen(name) + strlen(value) + 10;
+  char buffer[l];
+  sprintf(buffer, "{\"%s\": \"%s\"}", name, value);
+  events.send(buffer, event, evid++);
+}
+
 void setup() {
   pinMode ( led, OUTPUT );
   digitalWrite ( led, ledOff );
-  Serial.begin ( 115200 );
+  Serial.begin ( serial0speed );
   Serial.println ();
   pinMode(15, OUTPUT);
   SetAPvar();
   ReIni();
+  uniBuf[uniBufout] = 0;
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "null");
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Credentials", "true");
 }
 
 void loop() {
@@ -164,30 +174,21 @@ void loop() {
   case RL_AllRunning:{
     TE_AcktLoop = now();
     //Daten am Serielport verarbeiten
-    gtString="";
-    uint16_t dcount=0;
-    boolean doexit=false;
-    do{ 
-      if(SerialRead()){
-        doexit=true;
-      }else{
-        if(gtString.length() > dcount){
-          delay(2);
-        }else{
-          gtString="";
-          doexit=true;
-        }
-      }                 
-    }while (!doexit);
-    if ((gtString.length() > 1) && (gtString.charAt(1)==':')){
-      switch (gtString.charAt(0)) {
-      case 'I':{
-        SerInfo=gtString.substring(2);
-        SerInfoT=TE_AcktLoop;        
-      break;}
+
+    if (SerialByteRead()){
+      uniBuf[uniBufin] = 0;
+      uniBufin = 0;
+      if ISen_SSE {
+        SSEjPair("RxT", uniBuf, "Serial0");
       }
     }
-    
+    if (uniBuf[uniBufout] != 0){
+      if ISen_TXD1 {
+        if (SerialByteWrite(Serial1)) SSEjPair("TxT", "Send done", "Serial1");
+      }else{
+        if (SerialByteWrite(Serial)) SSEjPair("TxT", "Send done", "Serial0");
+      }
+    }
   break;}
   }
 

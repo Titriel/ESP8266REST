@@ -12,7 +12,7 @@ void preresponce(AsyncWebServerRequest *httpreq, JsonObject &jroot, bool legal =
 }
 
 void rescors(AsyncWebServerResponse *response, String allwori = "*"){
-  response->addHeader("Access-Control-Allow-Origin", allwori);
+  //if(allwori != "*") response->addHeader("Access-Control-Allow-Origin", allwori);
   response->addHeader("Access-Control-Allow-Methods", "*");
   response->addHeader("Access-Control-Allow-Headers", "*");
 }
@@ -110,20 +110,65 @@ void onBody(AsyncWebServerRequest *httpreq, uint8_t *data, size_t len, size_t in
 //-- Handler Systemcals --
 //--- Handler Session begin/distroy ---
 void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
-  JsonObject jreq = jvar.as<JsonObject>();
-  DynamicJsonDocument jbuf(128);
-  JsonObject jroot = jbuf.to<JsonObject>();
-  switch (httpreq->method()){
-    case HTTP_GET:{
-      if (postrequest(httpreq, true)){
-        preresponce(httpreq, jroot);
-        jroot["msg"] = "Session established.";
-        jsonsend(httpreq, jbuf, 201);
-      }
-      return;
+  if (httpreq->method()==HTTP_GET){
+    if (postrequest(httpreq, true)){
+      DynamicJsonDocument jbuf(128);
+      JsonObject jroot = jbuf.to<JsonObject>();
+      preresponce(httpreq, jroot);
+      jroot["msg"] = "Session established.";
+      jsonsend(httpreq, jbuf, 201);
     }
-    case HTTP_DELETE:{
-      if (postrequest(httpreq)){
+    return;      
+  }else if (postrequest(httpreq)){
+    JsonObject jreq = jvar.as<JsonObject>();
+    DynamicJsonDocument jbuf(128);
+    JsonObject jroot = jbuf.to<JsonObject>();
+    switch (httpreq->method()){
+      case HTTP_POST:{
+        preresponce(httpreq, jroot);
+        if ISen_SSE {
+          SSEjPair(jreq["name"].as<const char*>(), jreq["string"].as<const char*>(), jreq["event"].as<const char*>());
+          jroot["msg"] = "SSE done.";
+          jsonsend(httpreq, jbuf, 200);
+        }else{
+          jroot["msg"] = "SSE not running.";
+          jsonsend(httpreq, jbuf, 428);
+        }
+        return;
+      }
+      case HTTP_PATCH: if ISen_SSE {events.close(); en_SSE(false); }
+      case HTTP_PUT:{
+        preresponce(httpreq, jroot);
+        if ISen_SSE {
+          jroot["msg"] = "SSE is ready.";
+        }else{
+          en_SSE(true)
+          jroot["msg"] = "SSE established.";
+          events.onConnect([](AsyncEventSourceClient *client){
+            String temp = "{\"SSE\": \"established\", \"lastmsg\": ";
+            if(client->lastId()){
+              temp += String(client->lastId());
+            }else{
+              temp += "NULL";
+            }
+            temp += "}";
+            client->send(temp.c_str(), NULL, evid++, 1000);
+          });
+          if (jreq.containsKey("user")){
+            String temp;
+            if (jreq.containsKey("pass")){
+              temp = jreq["pass"].as<String>();
+            }else{
+              temp = keydict[httpreq->header("From")].as<String>();
+            }
+            events.setAuthentication(jreq["user"].as<const char*>(), temp.c_str());
+            server.addHandler(&events);
+          }
+        }
+        jsonsend(httpreq, jbuf, 201);
+        return;
+      }
+      case HTTP_DELETE:{
         preresponce(httpreq, jroot);
         String temp = httpreq->header("From");
         if (keydict.containsKey(temp)){
@@ -132,12 +177,12 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
         }
         jroot["msg"] = "Session deleted.";        
         jsonsend(httpreq, jbuf, 202);
+        return;
+      }    
+      default:{
+        defaulthandler(httpreq);
+        return;
       }
-      return;
-    }    
-    default:{
-      defaulthandler(httpreq);
-      return;
     }
   }
 }
@@ -325,7 +370,73 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
       }
     }
   }
-}    
+}
+
+void aktualSerial(JsonObject &jroot, String msg){
+  jroot["msg"] = msg;
+  jroot["SSE"] = ISen_SSE;
+  jroot["inBufSize"] = uniBufoutstart;
+  jroot["outBufSize"] = uniBufdatastart - uniBufoutstart;
+  JsonObject s0 = jroot.createNestedObject("Serial0");
+  s0["baud"] = Serial.baudRate();
+  JsonObject s1 = jroot.createNestedObject("Serial1");   
+  s1["enabeled"] = bool ISen_TXD1;
+  s1["GPIO2used"] = bool ISused_D2;
+  if ISen_TXD1 {
+    s0["baud"] = Serial.baudRate();
+  }
+}
+void doserialset(AsyncWebServerRequest *httpreq, JsonObject &jreq){
+  if(jreq.containsKey("inBufSize")) uniBufoutstart = jreq["inBufSize"].as<unsigned short>();
+  if(jreq.containsKey("outBufSize")) uniBufdatastart = uniBufoutstart + jreq["outBufSize"].as<unsigned short>();
+
+}
+void handleSerialx(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty){
+  if (postrequest(httpreq)){
+    JsonObject jreq = jvar.as<JsonObject>();
+    DynamicJsonDocument jbuf(384);
+    JsonObject jroot = jbuf.to<JsonObject>();    
+    switch (httpreq->method()){
+      case HTTP_GET:{
+        preresponce(httpreq, jroot);
+        aktualSerial(jroot, "Serial settings.");
+        jsonsend(httpreq, jbuf, 200);
+        return;
+      }
+      case HTTP_POST:{
+        preresponce(httpreq, jroot);
+        if (! ISen_SSE ){
+          aktualSerial(jroot, "SSE not established!");
+          jsonsend(httpreq, jbuf, 428);
+        }else if (jreq.containsKey("useTxT1") && ! ISen_TXD1 ){
+          aktualSerial(jroot, "TxT1 is disabeled!");
+          jsonsend(httpreq, jbuf, 428);
+        }else if (!jreq.containsKey("TxT")){
+          aktualSerial(jroot, "No data to transmit!");
+          jsonsend(httpreq, jbuf, 500);
+        }else{
+          unsigned short io = 0;
+          unsigned short c = jreq["TxT"].as<String>().length();
+          for ( unsigned short i = uniBufoutstart; i < uniBufdatastart; i++){
+            if (((uniBuf[i] == 0) || ( i % 4 != 0 )) && (io < c)){
+              uniBuf[i] = jreq["TxT"].as<String>()[io++];
+            }else{
+              break;
+            }
+          }
+          jroot["msg"] = "Serial data buferd.";
+          jroot["bytes"] = (io / 4) * 3;
+          jsonsend(httpreq, jbuf, 200);                   
+        }
+        return;
+      }        
+      default:{
+        defaulthandler(httpreq);
+        return;
+      }
+    }
+  }
+}
 
 void webStart(){
   AsyncCallbackJsonWebHandler *handler;
@@ -348,9 +459,15 @@ void webStart(){
   });
   server.addHandler(handler);
 
-    server.on("/ds18b20", HTTP_OPTIONS | HTTP_GET | HTTP_DELETE, [](AsyncWebServerRequest *httpreq){handleDs18b20(httpreq);});  
+  server.on("/ds18b20", HTTP_OPTIONS | HTTP_GET | HTTP_DELETE, [](AsyncWebServerRequest *httpreq){handleDs18b20(httpreq);});  
   handler = new AsyncCallbackJsonWebHandler("/ds18b20", [](AsyncWebServerRequest *httpreq, JsonVariant &json) {
     handleDs18b20(httpreq, json);
+  });
+  server.addHandler(handler);
+
+  server.on("/serial", HTTP_OPTIONS | HTTP_GET | HTTP_DELETE, [](AsyncWebServerRequest *httpreq){handleSerialx(httpreq);});  
+  handler = new AsyncCallbackJsonWebHandler("/serial", [](AsyncWebServerRequest *httpreq, JsonVariant &json) {
+    handleSerialx(httpreq, json);
   });
   server.addHandler(handler);
 
