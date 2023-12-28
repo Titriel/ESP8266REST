@@ -97,15 +97,18 @@ bool SerialByteWrite(HardwareSerial &serial){
       }
       itemp = itemp << 2;        
     }
-    for (byte i = 3; i > pb; i--){
+    pb++;
+    for (char i = 3; i > pb; i--){
       serial.write(btemp[i]);
     }
     uniBuf[uniBufout] = 0;
     uniBufout += 4;
-    if (uniBuf[uniBufout] != 0) return false;
+    if (uniBuf[uniBufout] == 0){
+      uniBufout = uniBufoutstart;
+      return true;
+    }
   }
-  uniBufout = uniBufoutstart;
-  return true;
+  return false;
 }
 
 char base64char(byte wert){

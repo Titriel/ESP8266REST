@@ -415,17 +415,21 @@ void handleSerialx(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty){
           aktualSerial(jroot, "No data to transmit!");
           jsonsend(httpreq, jbuf, 500);
         }else{
+          byte eq = 0;
           unsigned short io = 0;
           unsigned short c = jreq["TxT"].as<String>().length();
           for ( unsigned short i = uniBufoutstart; i < uniBufdatastart; i++){
             if (((uniBuf[i] == 0) || ( i % 4 != 0 )) && (io < c)){
-              uniBuf[i] = jreq["TxT"].as<String>()[io++];
+              char temp = jreq["TxT"].as<String>()[io++];
+              uniBuf[i] = temp;
+              if (temp == '=') eq++;
             }else{
+              uniBuf[i] = 0;
               break;
             }
           }
           jroot["msg"] = "Serial data buferd.";
-          jroot["bytes"] = (io / 4) * 3;
+          jroot["bytes"] = (io / 4) * 3 - eq;
           jsonsend(httpreq, jbuf, 200);                   
         }
         return;
