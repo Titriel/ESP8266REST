@@ -4,6 +4,19 @@ void SSEjPair(const char* name, const char* value, const char* event = "os" ){
   sprintf(buffer, "{\"%s\": \"%s\"}", name, value);
   events.send(buffer, event, evid++);
 }
+void SendMsg(const char* text, bool term = true){
+  if ISen_SSE {
+    sysdict["msg"] = sysdict["msg"].as<String>() + String(text);
+    if(term){
+      events.send(sysdict["msg"].as<const char*>(), "os", evid++);
+      sysdict["msg"] = "";
+    }
+  }else if(term){
+    Serial.println(text);
+  }else{
+    Serial.print(text);
+  }
+}
 
 void setup() {
   pinMode ( led, OUTPUT );
@@ -13,6 +26,7 @@ void setup() {
   pinMode(15, OUTPUT);
   SetAPvar();
   ReIni();
+  sysdict["msg"] = String("");
   uniBuf[uniBufout] = 0;
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "null");
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Credentials", "true");
@@ -162,19 +176,22 @@ void loop() {
     runlevel = RL_ServerRunning;
   } //Ohne breake Ok  
   case RL_ServerRunning:{
-    runlevel |= RL_NtpFlag;    
-    if (timeStatus() == timeNotSet){setSyncProvider(getNtpTime);}
-    if (timeStatus() == timeNotSet){
-      break;
-    }else{
-      Serial.println(TimeStamp("No NTP"));
-      runlevel = RL_AllRunning;
-    }
+    setSyncProvider(getNtpTime);
+    setSyncInterval(120);
+    runlevel = RL_TimeNTP;
+  }
+  case RL_TimeNTP:{
+    if (milliesResync && (timeStatus() == timeSet)){runlevel = RL_AllRunning;}
   }
   case RL_AllRunning:{
     TE_AcktLoop = now();
+    if (milliesResync){
+      SendMsg("Updated: ", false);
+      SendMsg(TimeStamp("No NTP").c_str());
+      if (timeStatus() != timeSet){runlevel = RL_TimeNTP;}
+      milliesResync = false;
+    }    
     //Daten am Serielport verarbeiten
-
     if (SerialByteRead()){
       uniBuf[uniBufin] = 0;
       uniBufin = 0;

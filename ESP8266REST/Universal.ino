@@ -468,7 +468,7 @@ time_t getNtpTime(){
   NTPudp.setTimeout(5);
   WiFi.hostByName(ntpServerName.c_str(), timeServerIP);
   // send an NTP request to the time server at the given address
-  Serial.println("sending NTP packet...");
+  SendMsg("sending NTP packet...", false);
   // Initialize values needed to form NTP request
   // (see URL above for details on the packets)
   packetBuffer[0] = 0b11100011;   // LI, Version, Mode
@@ -499,5 +499,7 @@ time_t getNtpTime(){
     }
   }
   NTPudp.stop();
+  SendMsg("unreatchable ", false);
+  milliesResync = true;
   return 0;
 }

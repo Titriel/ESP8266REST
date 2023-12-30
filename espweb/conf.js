@@ -6,5 +6,9 @@ var config = `{
   "ESP30": {
     "ip": "192.168.173.130",
     "pass": "admin@admin"
-  }  
+  },
+  "BeiPhilipp": {
+    "ip": "192.168.178.187",
+    "pass": "admin@admin"
+  }
 }`

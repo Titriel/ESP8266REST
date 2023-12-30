@@ -7,7 +7,7 @@ void preresponce(AsyncWebServerRequest *httpreq, JsonObject &jroot, bool legal =
     String From = httpreq->header("From");
     temp = makeMD5(temp+SysHash, false);
     keydict[From] = temp;
-    temp += "@" + From;
+    //temp += "@" + From;
   }
 }
 
@@ -65,6 +65,9 @@ bool postrequest(AsyncWebServerRequest *httpreq, bool ns = false){
   if(httpreq->hasHeader("X-Auth")){
     temp = httpreq->header("X-Auth");
   }
+  if((timeStatus() == timeNotSet) && httpreq->hasHeader("X-UTC")){
+    setTime(httpreq->header("X-UTC").toInt());
+  }  
   if(ns){
     if ((keydict.size() > 4) && !keydict.containsKey(From)){
       preresponce(httpreq, jroot, false);
@@ -117,6 +120,10 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
       preresponce(httpreq, jroot);
       jroot["msg"] = "Session established.";
       jsonsend(httpreq, jbuf, 201);
+      if(runlevel < RL_ServerRunning){
+        SendMsg("Abbruch wegen API-Zugriff !!!");
+        runlevel = RL_ServerRunning;
+      }
     }
     return;      
   }else if (postrequest(httpreq)){

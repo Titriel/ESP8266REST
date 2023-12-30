@@ -44,6 +44,7 @@ static const char Unset[] = ";}na]{";
 #define RL_TrySerialPass  0x11
 #define RL_ServerRunning  0x20
 #define RL_Time           0x23
+#define RL_TimeNTP        0x28
 #define RL_AllRunning     0xFF
 byte runlevel;
 
@@ -131,7 +132,7 @@ byte getTempStat = 0;
 WiFiUDP NTPudp;
 String ntpServerName;
 #define NTP_PACKET_SIZE  48 // NTP time stamp is in the first 48 bytes of the message
-boolean milliesResync = true;
+boolean milliesResync = false;
 //---FileMan--------------------------------------------------------------------------
 #define fm_count 3
 static const char fm_cd[] PROGMEM = "/c.d";

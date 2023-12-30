@@ -9,6 +9,7 @@ var SysHash = "";
 var Auth = "";
 var jresponce;
 var EvSo = false;
+var source = false;
 document.getElementById("firstTab").click();
 loadconfig()
 
@@ -35,9 +36,12 @@ function dorequest(path = "/", methode = "GET", content = "{}") {
   let ip = document.getElementById("IP").value;
   xhttp.open(methode, "http://"+ip+path);
   xhttp.setRequestHeader("From",from);
+  let utc = Math.floor((new Date()).getTime() / 1000).toString();
+  xhttp.setRequestHeader("X-UTC",utc);
   let reqtext = "URL: http://" + ip+path + "\r\n";
   reqtext += "Methode: " + methode + "\r\n";
   reqtext += "Haeder From: " + from + "\r\n";
+  reqtext += "Haeder X-UTC: " + utc + "\r\n";
   if ((path == "/") && (methode == "GET")){
     xhttp.setRequestHeader("X-Auth", md5(SysHash+from));
     reqtext += "Haeder X-Auth: " + md5(SysHash+from) + "\r\n";
@@ -61,13 +65,15 @@ function startSSE(user, pass){
   console.log(window.EventSource);
   dorequest('/','PUT','{"user": "'+user+'", "pass": "'+pass+'"}');
   if (!EvSo) {
-    setTimeout(aktSSE, 100);
+    setTimeout(aktSSE, 500);
   }
 }
 function aktSSE(){
-  EvSo = true;
   let ip = document.getElementById("IP").value;
-  var source = new EventSource("http://"+ip+'/events', {
+  if ((typeof(source.readyState) !== "undefined") && source.readyState === EventSource.OPEN){
+    source.close();
+  }
+  source = new EventSource("http://"+ip+'/events', {
     withCredentials: true
   });
   source.addEventListener('open', function(e) {
@@ -83,6 +89,8 @@ function aktSSE(){
   source.addEventListener('error', function(e) {
     if (e.target.readyState != EventSource.OPEN) {
       document.getElementById("sse").value += "Events Disconnected\r\n";
+      e.target.close();
+      //setTimeout(aktSSE, 15000);
     }
   }, false);
 
@@ -90,8 +98,8 @@ function aktSSE(){
     document.getElementById("sse").value += "message["+e.lastEventId+"]: "+e.data+"\r\n";
   }, false);
 
-  source.addEventListener('Kawum', function(e) {
-    document.getElementById("sse").value += "Kawum["+e.lastEventId+"]: "+e.data+"\r\n";
+  source.addEventListener('os', function(e) {
+    document.getElementById("sse").value += "os["+e.lastEventId+"]: "+e.data+"\r\n";
   }, false);
 
   source.addEventListener('Serial0', function(e) {
@@ -108,6 +116,7 @@ function loadconfig() {
     if(document.getElementById("IP").value == ""){
       document.getElementById("IP").value = value.ip;
       document.getElementById("Pass").value = value.pass;
+      SysHash =md5(value.pass);
     }
     let opt = document.createElement('option');
     opt.value = key;
