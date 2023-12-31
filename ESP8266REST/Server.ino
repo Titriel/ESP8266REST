@@ -13,8 +13,8 @@ void preresponce(AsyncWebServerRequest *httpreq, JsonObject &jroot, bool legal =
 
 void rescors(AsyncWebServerResponse *response, String allwori = "*"){
   //if(allwori != "*") response->addHeader("Access-Control-Allow-Origin", allwori);
-  response->addHeader("Access-Control-Allow-Methods", "*");
-  response->addHeader("Access-Control-Allow-Headers", "*");
+  response->addHeader(PSTR("Access-Control-Allow-Methods"), "*");
+  response->addHeader(PSTR("Access-Control-Allow-Headers"), "*");
 }
 
 void jtextsend(AsyncWebServerRequest *httpreq, String &temp, int code){
@@ -71,7 +71,7 @@ bool postrequest(AsyncWebServerRequest *httpreq, bool ns = false){
   if(ns){
     if ((keydict.size() > 4) && !keydict.containsKey(From)){
       preresponce(httpreq, jroot, false);
-      jroot["msg"] = "Max sessions (5) reatched !";
+      jroot["msg"] = F("Max sessions (5) reatched !");
       jsonsend(httpreq, jbuf, 503);
       return false;
     }else if(temp == makeMD5(SysHash+From, false)){
@@ -118,10 +118,10 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
       DynamicJsonDocument jbuf(128);
       JsonObject jroot = jbuf.to<JsonObject>();
       preresponce(httpreq, jroot);
-      jroot["msg"] = "Session established.";
+      jroot["msg"] = F("Session established.");
       jsonsend(httpreq, jbuf, 201);
       if(runlevel < RL_ServerRunning){
-        SendMsg("Abbruch wegen API-Zugriff !!!");
+        SendMsg(TX_CanAPIex);
         runlevel = RL_ServerRunning;
       }
     }
@@ -135,7 +135,7 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
         preresponce(httpreq, jroot);
         if ISen_SSE {
           SSEjPair(jreq["name"].as<const char*>(), jreq["string"].as<const char*>(), jreq["event"].as<const char*>());
-          jroot["msg"] = "SSE done.";
+          jroot["msg"] = F("SSE done.");
           jsonsend(httpreq, jbuf, 200);
         }else{
           jroot["msg"] = "SSE not running.";
@@ -147,10 +147,10 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
       case HTTP_PUT:{
         preresponce(httpreq, jroot);
         if ISen_SSE {
-          jroot["msg"] = "SSE is ready.";
+          jroot["msg"] = F("SSE is ready.");
         }else{
           en_SSE(true)
-          jroot["msg"] = "SSE established.";
+          jroot["msg"] = F("SSE established.");
           events.onConnect([](AsyncEventSourceClient *client){
             String temp = "{\"SSE\": \"established\", \"lastmsg\": ";
             if(client->lastId()){
@@ -182,7 +182,7 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
           keydict.remove(temp);
           sysdoc.garbageCollect();
         }
-        jroot["msg"] = "Session deleted.";        
+        jroot["msg"] = F("Session deleted.");        
         jsonsend(httpreq, jbuf, 202);
         return;
       }    
@@ -228,14 +228,14 @@ void handleConfig(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty) {
     switch (httpreq->method()){
       case HTTP_GET:{
         preresponce(httpreq, jroot);
-        jroot["msg"] = "Loaded settings.";
+        jroot["msg"] = F("Loaded settings.");
         aktualsysset(jroot);
         jsonsend(httpreq, jbuf, 200);
         return;
       }
       case HTTP_POST:{
         preresponce(httpreq, jroot);
-        jroot["msg"] = "Restarting.";        
+        jroot["msg"] = F("Restarting.");        
         jsonsend(httpreq, jbuf, 200);
         runlevel = RL_Warmstart;
         return;
@@ -254,7 +254,7 @@ void handleConfig(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty) {
       }
       case HTTP_DELETE:{
         preresponce(httpreq, jroot);
-        jroot["msg"] = "Facktory reset.";
+        jroot["msg"] = F("Facktory reset.");
         SetAPvar();
         aktualsysset(jroot);
         jsonsend(httpreq, jbuf, 202);
@@ -277,7 +277,7 @@ void handleDigital(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
     switch (httpreq->method()){
       case HTTP_GET:{
         preresponce(httpreq, jroot);
-        jroot["msg"] = "Loaded settings.";
+        jroot["msg"] = F("Loaded settings.");
         aktualsysset(jroot);
         jsonsend(httpreq, jbuf, 200);
         return;
@@ -291,7 +291,7 @@ void handleDigital(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
           LSI_State = (jreq["LSIon"].as<bool>())?0xF1:0xFF;
         }
         preresponce(httpreq, jroot);
-        jroot["msg"] = "LSI modified.";
+        jroot["msg"] = F("LSI modified.");
         jsonsend(httpreq, jbuf, 201);
         return;
       }      
@@ -315,7 +315,7 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
     switch (httpreq->method()){
       case HTTP_GET:{
         preresponce(httpreq, jroot);
-        jroot["msg"] = "Ds18b20 settings.";
+        jroot["msg"] = F("ds18b20 settings.");
         aktualDs18b20(jroot);
         jsonsend(httpreq, jbuf, 200);
         return;
@@ -328,7 +328,7 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
         }
         preresponce(httpreq, jroot);
         if ISen_ds18b20{
-          jroot["msg"] = "Read temperatures.";
+          jroot["msg"] = F("Read temperatures.");
           jroot["unit"] = unit;
           jroot["data"] = "@";
           String temp = "";
@@ -337,7 +337,7 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
           temp += readTemperatur("    \"" , "" , "\": " , ",\r\n" , "    \"msg\": \"", (toupper(unit[0]) == 'F')) + "\"\r\n  }\r\n}";
           jtextsend(httpreq, temp, 200);
         }else{
-          jroot["msg"] = "ds18b20 is not enabeld.";
+          jroot["msg"] = F("ds18b20 is not enabeld.");
           aktualDs18b20(jroot);
           jsonsend(httpreq, jbuf, 428);
         }
@@ -350,11 +350,11 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
         }
         preresponce(httpreq, jroot);
         if ISen_ds18b20{
-          jroot["msg"] = "ds18b20 is enabeld.";
+          jroot["msg"] = F("ds18b20 is enabeld.");
           aktualDs18b20(jroot);
           jsonsend(httpreq, jbuf, 201);
         }else{
-          jroot["msg"] = "GPIO2 is in use.";
+          jroot["msg"] = F("GPIO2 is in use.");
           aktualDs18b20(jroot);
           jsonsend(httpreq, jbuf, 409);
         }
@@ -366,7 +366,7 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
           use_D2(false);
           en_ds18b20(false);
         }
-        jroot["msg"] = "ds18b20 is disabeld.";
+        jroot["msg"] = F("ds18b20 is disabeld.");
         aktualDs18b20(jroot);
         jsonsend(httpreq, jbuf, 202);
         return;
@@ -379,7 +379,7 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
   }
 }
 
-void aktualSerial(JsonObject &jroot, String msg){
+void aktualSerial(JsonObject &jroot, const String msg){
   jroot["msg"] = msg;
   jroot["SSE"] = ISen_SSE;
   jroot["inBufSize"] = uniBufoutstart;
@@ -406,20 +406,20 @@ void handleSerialx(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty){
     switch (httpreq->method()){
       case HTTP_GET:{
         preresponce(httpreq, jroot);
-        aktualSerial(jroot, "Serial settings.");
+        aktualSerial(jroot, F("Serial settings."));
         jsonsend(httpreq, jbuf, 200);
         return;
       }
       case HTTP_POST:{
         preresponce(httpreq, jroot);
         if (! ISen_SSE ){
-          aktualSerial(jroot, "SSE not established!");
+          aktualSerial(jroot, F("SSE not established!"));
           jsonsend(httpreq, jbuf, 428);
         }else if (jreq.containsKey("useTxT1") && ! ISen_TXD1 ){
-          aktualSerial(jroot, "TxT1 is disabeled!");
+          aktualSerial(jroot, F("TxT1 is disabeled!"));
           jsonsend(httpreq, jbuf, 428);
         }else if (!jreq.containsKey("TxT")){
-          aktualSerial(jroot, "No data to transmit!");
+          aktualSerial(jroot, F("No data to transmit!"));
           jsonsend(httpreq, jbuf, 500);
         }else{
           byte eq = 0;
@@ -435,7 +435,7 @@ void handleSerialx(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty){
               break;
             }
           }
-          jroot["msg"] = "Serial data buferd.";
+          jroot["msg"] = F("Serial data bufferd.");
           jroot["bytes"] = (io / 4) * 3 - eq;
           jsonsend(httpreq, jbuf, 200);                   
         }

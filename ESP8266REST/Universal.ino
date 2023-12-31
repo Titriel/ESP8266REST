@@ -61,14 +61,6 @@ double transFloat(String Zahl){
 }
 
 //---Seriel I/O-----------------------------------------------
-void Serial_printPGM(const char* x){
-  Serial.print(C(x));
-}
-
-void Serial_printlnPGM(const char* x){
-  Serial.println(C(x));
-}
-
 byte base64byte(char wert){
   if (wert > 96){
     wert -= 71;
@@ -468,7 +460,7 @@ time_t getNtpTime(){
   NTPudp.setTimeout(5);
   WiFi.hostByName(ntpServerName.c_str(), timeServerIP);
   // send an NTP request to the time server at the given address
-  SendMsg("sending NTP packet...", false);
+  SendMsg(TX_sendNTP, false);
   // Initialize values needed to form NTP request
   // (see URL above for details on the packets)
   packetBuffer[0] = 0b11100011;   // LI, Version, Mode
@@ -499,7 +491,7 @@ time_t getNtpTime(){
     }
   }
   NTPudp.stop();
-  SendMsg("unreatchable ", false);
+  SendMsg(PSTR("unreatchable "), false);
   milliesResync = true;
   return 0;
 }

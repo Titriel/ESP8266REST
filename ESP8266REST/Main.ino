@@ -22,14 +22,14 @@ void setup() {
   pinMode ( led, OUTPUT );
   digitalWrite ( led, ledOff );
   Serial.begin ( serial0speed );
-  Serial.println ();
+  SendMsg ("");
   pinMode(15, OUTPUT);
   SetAPvar();
   ReIni();
-  sysdict["msg"] = String("");
+  sysdict["msg"] = "";
   uniBuf[uniBufout] = 0;
-  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "null");
-  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Credentials", "true");
+  DefaultHeaders::Instance().addHeader(PSTR("Access-Control-Allow-Origin"), "null");
+  DefaultHeaders::Instance().addHeader(PSTR("Access-Control-Allow-Credentials"), "true");
 }
 
 void loop() {
@@ -51,10 +51,9 @@ void loop() {
   }
   case RL_Start:{
     //---FileSystem initalisieren/öffnen----------------------------------------------------
-    //Serial.println(SERIAL_BUFFER_SIZE);
     SPIFFS.begin();  
     if (!SPIFFS.exists(FPSTR(fm_cd))){
-      if (SPIFFS.format())Serial_printlnPGM(TX_Format);
+      if (SPIFFS.format()) SendMsg(TX_Format);
         makeConf();
         runlevel = RL_NoUseablelAP;  
     }else{
@@ -74,14 +73,12 @@ void loop() {
       }
       pp_auth += WiFi.SSID(i);
       pp_auth += "\n";
-      Serial.print(i+1);
-      Serial.print(F(". "));
-      Serial.print(WiFi.SSID(i));
-      Serial.print(F(" Level: "));
-      Serial.print(WiFi.RSSI(i));
-      Serial.print(F("dBm "));
-      if (WiFi.encryptionType(i) != ENC_TYPE_NONE){Serial_printPGM(TX_NeedPass);}
-      Serial.println ( "" );
+      unsigned short l = WiFi.SSID(i).length() + 20;
+      char txtbuf[l];
+      sprintf(txtbuf, PSTR("%d. %s Level: %ddBm"), (i+1), WiFi.SSID(i).c_str(), WiFi.RSSI(i));
+      bool nopw = (WiFi.encryptionType(i) == ENC_TYPE_NONE);
+      SendMsg(txtbuf, nopw);
+      if (!nopw) SendMsg(TX_NeedPass); 
     }
   break;}
   case RL_APreachable:{
@@ -91,23 +88,22 @@ void loop() {
     uint32_t beginWait = millis();
     while ((millis() - beginWait < 20000) && (WiFi.status() != WL_CONNECTED)) {
       delay(500);
-      Serial.print(".");
+      SendMsg(".", false);
     }
     if (WiFi.status() != WL_CONNECTED){
       WiFi.disconnect();
       runlevel = RL_NoUseablelAP;
     }else{
       runlevel = RL_APlogged;
-      Serial.println ( "" );
-      Serial.print ( TX_ConTo );
-      Serial.println ( ssid );
-      Serial_printPGM(TX_IpAdr);
+      unsigned short l = ssid.length() + 46;
+      char txtbuf[l];
       myIP = WiFi.localIP();
-      Serial.println(myIP);
+      sprintf(txtbuf, PSTR("\n%s%s %s%d.%d.%d.%d"), TX_ConTo, ssid.c_str(),TX_IpAdr, myIP[0], myIP[1],  myIP[2], myIP[3]);
+      SendMsg(txtbuf);
       LSIp = myIP[3];
       LSI_State = 0x0F;
       if ( mdns.begin (C(TX_DNS))) {
-        Serial_printlnPGM(TX_MDNSstart);
+        SendMsg(TX_MDNSstart);
       }
       Inet = true;
     }        
@@ -120,24 +116,21 @@ void loop() {
     IPAddress NMask(255, 255, 255, 0);
     WiFi.softAPConfig(myIP, myIP, NMask);
     WiFi.softAP(AP_SSID.c_str(), AP_Passwort.c_str(),6);
-    Serial.println ( "" );
-    Serial.print ( TX_ApOpenAs );
-    Serial.println ( AP_SSID );
-    Serial_printPGM(TX_Passwd);
-    Serial.println ( AP_Passwort );
-    Serial_printPGM(TX_IpAdr);
-    Serial.println( myIP );
+    unsigned short l = AP_SSID.length()+ AP_Passwort.length() + 56;
+    char txtbuf[l];
+    sprintf(txtbuf, PSTR("\n%s%s %s%s %s%d.%d.%d.%d"), TX_ApOpenAs, AP_SSID.c_str(), TX_Passwd, AP_Passwort.c_str(), TX_IpAdr, myIP[0], myIP[1],  myIP[2], myIP[3]);
+    SendMsg(txtbuf);
     LSIp = myIP[3];
     LSI_State = 0x0F;
     if (mdns.begin(C(TX_DNS), myIP)) {
-      Serial_printlnPGM(TX_MDNSstart);
+      SendMsg(TX_MDNSstart);
     }
     //---Configseite verfügbar machen---------------------------------------------------------
     webStart();
-    Serial_printlnPGM(TX_HTTPstart);    
+    SendMsg(TX_HTTPstart);    
     runlevel = RL_TrySerialAPsel;
-    Serial.println ( "" );
-    Serial_printPGM (TX_TypeAPRef);
+    SendMsg("");
+    SendMsg(TX_TypeAPRef, false);
     gtString  = "";
   break;}    
   case RL_TrySerialAPsel:{
@@ -148,9 +141,9 @@ void loop() {
         pp_auth = pp_auth.substring(pp_auth.indexOf('\n')+1); 
       }
       ssid = pp_auth.substring(0,pp_auth.indexOf('\n'));
-      Serial.println (ssid);
+      SendMsg(ssid.c_str());
       runlevel = RL_TrySerialPass;
-      Serial_printPGM (TX_TypePass);
+      SendMsg(TX_TypePass, false);
       gtString  = "";
     }
   break;}
@@ -158,7 +151,7 @@ void loop() {
     //---Versuchen über Serielle Schnittstelle ein Passwort zu lesen---------------------------
     if (SerialRead()){
       passwort = gtString;
-      Serial.println (passwort);
+      SendMsg(passwort.c_str());
       makeConf();  
       runlevel = RL_StopAlltoRes;
     }

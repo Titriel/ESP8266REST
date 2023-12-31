@@ -170,14 +170,16 @@ void ReIni(){
 }
 
 //---Texte---------------------------------------------------------------------------
-#define           TX_ConTo F("Verbunden mit: ")
-#define           TX_ApOpenAs F("AP gestartet als: ")
+static const char TX_ConTo[] PROGMEM = "Verbunden mit: ";
+static const char TX_ApOpenAs[] PROGMEM = "AP gestartet als: ";
 static const char TX_DNS[] PROGMEM = "esp8266";
 static const char TX_Format[] PROGMEM = "Erzeuge Filesystem";
-static const char TX_NeedPass[] PROGMEM = "Passwortgeschuetzt";
+static const char TX_NeedPass[] PROGMEM = " Passwortgeschuetzt";
 static const char TX_Passwd[] PROGMEM = "Passwort: ";
 static const char TX_IpAdr[] PROGMEM = "IP Adresse: ";
 static const char TX_MDNSstart[] PROGMEM = "MDNS Responder gestartet";
 static const char TX_HTTPstart[] PROGMEM = "HTTP Server gestartet";
 static const char TX_TypeAPRef[] PROGMEM = "Bitte ein AP per Ziffer Auswählen: ";
 static const char TX_TypePass[] PROGMEM = "Bitte das Passwort eingeben: ";
+static const char TX_CanAPIex[] PROGMEM = "Abbruch wegen API-Zugriff !!!";
+static const char TX_sendNTP[] PROGMEM = "sending NTP packet...";
