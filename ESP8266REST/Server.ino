@@ -384,24 +384,123 @@ void aktualSerial(JsonObject &jroot, const String msg){
   jroot["SSE"] = ISen_SSE;
   jroot["inBufSize"] = uniBufoutstart;
   jroot["outBufSize"] = uniBufdatastart - uniBufoutstart;
+  jroot["GPIO2used"] = ISused_D2;
   JsonObject s0 = jroot.createNestedObject("Serial0");
   s0["baud"] = Serial.baudRate();
+  s0["loopback"] = ISen_LoopTXD;
+  s0["TxTmoved"] = ISen_MoveTxT;
+  s0["swaped"] = ISen_SwapSer;
+  s0["GPIO13used"] = ISused_D13;
+  s0["GPIO15used"] = ISused_D15;
   JsonObject s1 = jroot.createNestedObject("Serial1");   
-  s1["enabeled"] = bool ISen_TXD1;
-  s1["GPIO2used"] = bool ISused_D2;
+  s1["enabeled"] = ISen_TXD1;
   if ISen_TXD1 {
-    s0["baud"] = Serial.baudRate();
+    s1["baud"] = Serial1.baudRate();
+    s1["loopback"] = ISen_LoopTXD1;
   }
 }
-void doserialset(AsyncWebServerRequest *httpreq, JsonObject &jreq){
-  if(jreq.containsKey("inBufSize")) uniBufoutstart = jreq["inBufSize"].as<unsigned short>();
-  if(jreq.containsKey("outBufSize")) uniBufdatastart = uniBufoutstart + jreq["outBufSize"].as<unsigned short>();
-
+const String doserialset(JsonObject &jreq){
+  if(jreq.containsKey("outBufSize")){
+    unsigned short temp = uniBufoutstart + jreq["outBufSize"].as<unsigned short>();
+    if(temp < s_uniBuf){
+      uniBuf[temp] = 0;
+      uniBufdatastart = temp;
+    }else{
+      return F("Sum of buffers to large."); //409
+    }
+  }
+  if(jreq.containsKey("inBufSize")){
+    unsigned short inBufSize = jreq["inBufSize"].as<unsigned short>();
+    unsigned short temp = inBufSize + uniBufdatastart - uniBufoutstart;
+    if (temp < s_uniBuf){
+      uniBuf[inBufSize] = 0;
+      uniBufoutstart = inBufSize;
+      uniBufdatastart = temp;
+    }else{
+      return F("Sum of buffers to large."); //409
+    }
+  }
+  HardwareSerial* serial = &Serial;
+  if (jreq.containsKey("useTxT1")){
+    serial = &Serial1;
+    if (! ISen_TXD1 ){
+      if ISused_D2 {
+        return F("GPIO2 is in use."); //409
+      }else{
+        use_D2(true);
+        en_TXD1(true);
+        serial->begin(9600);
+      }
+    }
+  }else if (jreq.containsKey("move")){
+    if (jreq["move"].as<String>() == "TxT"){
+      if (! ISen_MoveTxT ){
+        if ISused_D2 return F("GPIO2 is in use."); //409
+        if ISen_SwapSer return F("Serial is swaped."); //409
+      } 
+    }else{
+      if (( ISused_D13 || ISused_D15 ) && ! ISen_SwapSer ){
+        return F("GPIO13 or 15 is in use."); //409
+      } 
+    }
+  }
+  if (jreq.containsKey("config")){
+    unsigned int bbaud = serial->baudRate();
+    const char* sconfig = jreq["config"].as<const char*>();
+    byte bconfig = (sconfig[2] == '1')?16:48;
+    bconfig += (sconfig[0] - '5') << 2;
+    if (sconfig[1] != 'N') bconfig += 2;
+    if (sconfig[1] == 'O') bconfig++;
+    serial->end();
+    if (jreq.containsKey("baud")){
+      serial->begin(jreq["baud"].as<unsigned int>(), (SerialConfig) bconfig);
+    }else{
+      serial->begin(bbaud, (SerialConfig) bconfig);
+    }
+  }else if(jreq.containsKey("baud")){
+    serial->updateBaudRate(jreq["baud"].as<unsigned int>());
+  }
+  if(jreq.containsKey("debug")) serial->setDebugOutput(jreq["debug"].as<bool>());
+  if (jreq.containsKey("useTxT1")){
+    if (jreq.containsKey("loopback")) en_LoopTXD1(jreq["loopback"].as<bool>());
+  }else{
+    if (jreq.containsKey("loopback")) en_LoopTXD(jreq["loopback"].as<bool>());
+    if (jreq.containsKey("config")){
+      if ISen_MoveTxT {
+        use_D2(false);
+        en_MoveTxT(false);
+      }
+      if ISen_SwapSer {
+        use_D13(false);
+        use_D15(false);
+        en_SwapSer(false);
+      }      
+    }
+    if (jreq.containsKey("move")){
+      if (jreq["move"].as<String>() == "TxT"){
+        if ISen_MoveTxT {
+          serial->set_tx(1);
+          use_D2(true);
+        }else{
+          serial->set_tx(2);
+          use_D2(false);
+        }
+        use_D2(! ISused_D2 );
+        en_MoveTxT(! ISen_MoveTxT );  
+      }else{
+        serial->swap();
+        en_SwapSer(! ISen_SwapSer );
+        use_D13(! ISused_D13 );
+        use_D15(! ISused_D15 );        
+      }
+    }
+  }
+  return F("Configuration done."); //201
 }
 void handleSerialx(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty){
   if (postrequest(httpreq)){
     JsonObject jreq = jvar.as<JsonObject>();
-    DynamicJsonDocument jbuf(384);
+    DynamicJsonDocument jbuf(512);
     JsonObject jroot = jbuf.to<JsonObject>();    
     switch (httpreq->method()){
       case HTTP_GET:{
@@ -439,6 +538,14 @@ void handleSerialx(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty){
           jroot["bytes"] = (io / 4) * 3 - eq;
           jsonsend(httpreq, jbuf, 200);                   
         }
+        return;
+      }
+      case HTTP_PATCH:{
+        const String msg = doserialset(jreq);
+        preresponce(httpreq, jroot);
+        aktualSerial(jroot, msg);
+        unsigned short sc = (msg[0] == 'C')?201:409;
+        jsonsend(httpreq, jbuf, sc);
         return;
       }        
       default:{

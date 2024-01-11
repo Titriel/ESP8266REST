@@ -19,7 +19,9 @@ function minmax(value, min, max) {
     return max; 
   else return parseInt(value);
 }
-
+function get(id, prop = 'value'){
+  return document.getElementById(id)[prop];
+}
 //md5 lib
 function t(n,t){
   var r=(65535&n)+(65535&t),e=(n>>16)+(t>>16)+(r>>16);

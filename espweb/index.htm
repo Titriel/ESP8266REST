@@ -75,23 +75,102 @@
         <label for="LSI">LSI Code:</label>
         <input type="text" id="LSI" name="LSI" value="111" onkeyup="this.value = minmax(this.value, 0, 255)">
       </div>
-      <button type="button" onclick="dorequest('/digital','PATCH','{``LSI``: '+document.getElementById('LSI').value+'}')">Set LSI</button>
+      <button type="button" onclick="dorequest('/digital','PATCH','{``LSI``: '+get('LSI')+'}')">Set LSI</button>
       <button type="button" onclick="dorequest('/digital','PATCH','{``LSIon``: true}')">LSI dauer an</button>
       <button type="button" onclick="dorequest('/digital','PATCH','{``LSIon``: false}')">LSI dauer aus</button> 
     </div>
 
     <div id="SerialTab" class="tabcontent">
-      <button type="button" onclick="dorequest('/serial')">Status Serial</button>
-      <div class = labeled>
-        <label for="Serialsend">Seriel Send Data:</label>
-        <input type="text" id="Serialsend" name="Serialsend" size=123>
-      </div>
-      <button type="button" onclick="dorequest('/serial','POST','{``TxT``: ``'+btoa(document.getElementById('Serialsend').value)+'``}')">send to TxT</button>
-      <button type="button" onclick="dorequest('/serial','POST','{``useTxT1``: true, ``TxT``: ``'+btoa(document.getElementById('Serialsend').value)+'``}')">send to TxT1</button>
-      <div class = labeled>
-        <label for="Serialres">Serial Resive Data:</label>
-        <textarea id="Serialres" name="Serialres" rows="20" cols="120"></textarea>
-      </div>      
+      <table style="width:100%">
+        <tr>
+          <td style = "width: 850px;">      
+            <button type="button" onclick="dorequest('/serial')">Status Serial</button>
+            <div class = labeled>
+              <label for="Serialsend">Seriel Send Data:</label>
+              <input type="text" id="Serialsend" name="Serialsend"  style = "width: 800px;">
+            </div>
+            <button type="button" onclick="dorequest('/serial','POST','{``TxT``: ``'+btoa(get('Serialsend'))+'``}')">send to TxT</button>
+            <button type="button" onclick="dorequest('/serial','POST','{``useTxT1``: true, ``TxT``: ``'+btoa(get('Serialsend'))+'``}')">send to TxT1</button>
+            <div class = labeled>
+              <label for="Serialres">Serial Resive Data:</label>
+              <textarea id="Serialres" name="Serialres" rows="20" style = "width: 800px;"></textarea>
+            </div>
+          </td>
+          <td style = "vertical-align: top;">
+            <div class = labeled>
+              <label for="inBufSize">inBufSize:</label>
+              <input type="text" id="inBufSize" name="inBufSize" value="1000"
+                onkeyup="this.value = minmax(this.value, 100, 3000)"
+                onfocusout="dorequest('/serial','PATCH','{``inBufSize``: '+this.value+'}')"
+              >
+            </div>
+            <div class = labeled>
+              <label for="outBufSize">outBufSize:</label>
+              <input type="text" id="outBufSize" name="outBufSize" value="1000"
+                onkeyup="this.value = minmax(this.value, 100, 3000)"
+                onfocusout="dorequest('/serial','PATCH','{``outBufSize``: '+this.value+'}')"
+              >
+            </div>            
+            <input type="checkbox" id="TxT1" name="TxT1" value=",``useTxT1``: true"
+              onchange="document.getElementById('serext').style.display = (this.checked)?'none':'block';
+              document.getElementById('lb').style.display = (this.checked)?'none':'block';
+              document.getElementById('lb1').style.display = (this.checked)?'block':'none';
+              ">
+            <label for="TxT1"> use for TxT1</label><br>
+            <div class = labeled>
+              <label for="baud">Baudrate:</label>            
+              <select name="baud" id="baud" onchange="dorequest('/serial','PATCH','{``baud``: '+this.value+',``config``: ``'+get('sconf','innerHTML')+'``'+((get('TxT1','checked'))?get('TxT1'):'')+'}')">
+                <option value="300">300</option>
+                <option value="600">600</option>
+                <option value="1200">1200</option>
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600">9600</option>
+
+                <option value="115200">115200</option>
+              </select>
+            </div>
+            <fieldset style = "width: 160px;">
+              <legend>Configkey: <span id = "sconf">8N1</span></legend>
+              <div class = labeled>
+                <label for="bits">Databits:</label>            
+                <select name="bits" id="bits" style = "width: 80px;" onchange="document.getElementById('sconf').innerHTML = this.value+get('parity')+((get('stopbits','checked'))?'2':'1')">
+                  <option value="8" selected>8</option>
+                  <option value="7">7</option>
+                  <option value="6">6</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+              <div class = labeled>
+                <label for="parity">Parity:</label>            
+                <select name="parity" id="parity" style = "width: 80px;" onchange="document.getElementById('sconf').innerHTML = get('bits')+this.value+((get('stopbits','checked'))?'2':'1')">
+                  <option value="N" selected>None</option>
+                  <option value="E">Even</option>
+                  <option value="O">Odd</option>
+                </select>
+              </div>
+              <input type="checkbox" id="stopbits" name="stopbits" onchange="document.getElementById('sconf').innerHTML = get('bits')+get('parity')+((this.checked)?'2':'1')">
+              <label for="stopbits"> use 2 stopbits</label>
+            </fieldset>
+            <div id="lb" style = "display: block;">
+              <input type="checkbox" id="loopback" name="loopback" onchange="dorequest('/serial','PATCH','{``loopback``: '+((this.checked)?'true':'false')+'}')">
+              <label for="loopback"> Loopback</label><br>
+            </div>
+            <div id="lb1" style = "display: none;">
+              <input type="checkbox" id="loopback1" name="loopback1" onchange="dorequest('/serial','PATCH','{``loopback``: '+((this.checked)?'true':'false')+get('TxT1')+'}')">
+              <label for="loopback1"> Loopback</label><br>
+            </div>
+            <button type="button" onclick="dorequest('/serial','PATCH','{``debug``: true'+((get('TxT1','checked'))?get('TxT1'):'')+'}')">enabel Debug</button><br>
+            <div id="serext" style = "display: block;">
+              <fieldset style = "width: 160px;">
+                <legend>More:</legend>
+                <button type="button" onclick="dorequest('/serial','PATCH','{``move``: ``TxT``}')">move TxT</button><br><br>
+                <button type="button" onclick="dorequest('/serial','PATCH','{``move``: ``swap``}')">swap Serial</button>
+              </fieldset>
+            </div>            
+          </td>
+        </tr>
+      </table> 
     </div>
 
     <div id="DS18b20Tab" class="tabcontent">
@@ -99,7 +178,8 @@
       <button type="button" onclick="dorequest('/ds18b20','POST','{``unit``: ``C[elsius]``}')">Temperaturen</button>
       <button type="button" onclick="dorequest('/ds18b20','PUT','{``enable``: true}')">Enabel ds18b20</button>
       <button type="button" onclick="dorequest('/ds18b20','DELETE')">Disabel ds18b20</button>
-    </div>    
+    </div>
+
     
     <div id="Tokyo" class="tabcontent">
       <h3>Tokyo</h3>

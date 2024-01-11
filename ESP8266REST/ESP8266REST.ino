@@ -73,7 +73,7 @@ byte IOused = 0;
 #define ISen_TWI        ((IFenabeld & 0x10) != 0) //D2,14 Software
 #define ISen_IR         ((IFenabeld & 0x20) != 0) //D5,14 Software
 #define ISen_TOUT       ((IFenabeld & 0x40) != 0) //ADC
-#define ISen_ADC        ((IFenabeld & 0x40) != 0) //ADC
+#define ISen_ADC        ((IFenabeld & 0x80) != 0) //ADC
 #define en_ds18b20(state)    if(state) IFenabeld |= 0x01; else IFenabeld &= 0xFE;
 #define en_TXD1(state)       if(state) IFenabeld |= 0x02; else IFenabeld &= 0xFD;
 #define en_HSPI(state)       if(state) IFenabeld |= 0x04; else IFenabeld &= 0xFB;
@@ -87,16 +87,16 @@ byte IFenabeld = 0;
 #define ISen_xds18b20    ((SFenabeld & 0x01) != 0) //D2 Software
 #define ISen_xTXD1       ((SFenabeld & 0x02) != 0) //D2
 #define ISen_xHSPI       ((SFenabeld & 0x04) != 0) //D12,13,14,15
-#define ISen_xI2S1       ((SFenabeld & 0x08) != 0) //D12,13,14 Software
-#define ISen_xTWI        ((SFenabeld & 0x10) != 0) //D2,14 Software
+#define ISen_SwapSer     ((SFenabeld & 0x08) != 0) //D12,13,14 Software
+#define ISen_MoveTxT     ((SFenabeld & 0x10) != 0) //D2,14 Software
 #define ISen_LoopTXD     ((SFenabeld & 0x20) != 0) //D5,14 Software
 #define ISen_LoopTXD1    ((SFenabeld & 0x40) != 0) //ADC
 #define ISen_SSE         ((SFenabeld & 0x80) != 0) //SSE
 #define en_xds18b20(state)    if(state) SFenabeld |= 0x01; else SFenabeld &= 0xFE;
 #define en_xTXD1(state)       if(state) SFenabeld |= 0x02; else SFenabeld &= 0xFD;
 #define en_xHSPI(state)       if(state) SFenabeld |= 0x04; else SFenabeld &= 0xFB;
-#define en_xI2S1(state)       if(state) SFenabeld |= 0x08; else SFenabeld &= 0xF7;
-#define en_xTWI(state)        if(state) SFenabeld |= 0x10; else SFenabeld &= 0xEF;
+#define en_SwapSer(state)     if(state) SFenabeld |= 0x08; else SFenabeld &= 0xF7;
+#define en_MoveTxT(state)     if(state) SFenabeld |= 0x10; else SFenabeld &= 0xEF;
 #define en_LoopTXD(state)     if(state) SFenabeld |= 0x20; else SFenabeld &= 0xDF;
 #define en_LoopTXD1(state)    if(state) SFenabeld |= 0x40; else SFenabeld &= 0xBF;
 #define en_SSE(state)         if(state) SFenabeld |= 0x80; else SFenabeld &= 0x7F;
