@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="main.css"></link>
   </head>
   <body>
-    <h2>ESP8266-REST view</h2>
+    <h2  style="margin-bottom: -10px">ESP8266-REST view</h2>
     <table style="width:100%">
       <tr>
         <td>
@@ -84,8 +84,40 @@
       <table style="width:100%">
         <tr>
           <td style = "width: 850px;">      
-            <button type="button" onclick="dorequest('/serial')">Status Serial</button>
-            <div class = labeled>
+            <table style="width:100%;border-collapse: collapse;">
+              <tr>
+                <td>
+                  <button type="button" onclick="dorequest('/serial')">Status Serial</button>
+                </td>
+                <td>            
+                  <div class = labeled>
+                    <label for="inBufSize">inBufSize (100 - 3000):</label>
+                    <input type="text" id="inBufSize" name="inBufSize" value="1000" onfocusout="
+                      this.value = minmax(this.value, 100, 3000);
+                      dorequest('/serial','PATCH','{``inBufSize``: '+this.value+'}');"
+                    >
+                  </div>
+                </td>
+                <td>
+                  <div class = labeled>
+                    <label for="outBufSize">outBufSize (100 - 3000):</label>
+                    <input type="text" id="outBufSize" name="outBufSize" value="1000" onfocusout="
+                      this.value = minmax(this.value, 100, 3000);
+                      dorequest('/serial','PATCH','{``outBufSize``: '+this.value+'}');"
+                    >
+                  </div>
+                </td>
+                <td>
+                  <input type="checkbox" id="TxT1" name="TxT1" value=",``useTxT1``: true"
+                  onchange="document.getElementById('serext').style.display = (this.checked)?'none':'block';
+                  document.getElementById('lb').style.display = (this.checked)?'none':'block';
+                  document.getElementById('lb1').style.display = (this.checked)?'block':'none';
+                  ">
+                <label for="TxT1"> use for TxT1</label>
+                </td>
+              </tr>
+            </table>            
+            <div class = labeled style="margin-top: -2px">
               <label for="Serialsend">Seriel Send Data:</label>
               <input type="text" id="Serialsend" name="Serialsend"  style = "width: 800px;">
             </div>
@@ -98,41 +130,30 @@
           </td>
           <td style = "vertical-align: top;">
             <div class = labeled>
-              <label for="inBufSize">inBufSize:</label>
-              <input type="text" id="inBufSize" name="inBufSize" value="1000"
-                onkeyup="this.value = minmax(this.value, 100, 3000)"
-                onfocusout="dorequest('/serial','PATCH','{``inBufSize``: '+this.value+'}')"
-              >
-            </div>
-            <div class = labeled>
-              <label for="outBufSize">outBufSize:</label>
-              <input type="text" id="outBufSize" name="outBufSize" value="1000"
-                onkeyup="this.value = minmax(this.value, 100, 3000)"
-                onfocusout="dorequest('/serial','PATCH','{``outBufSize``: '+this.value+'}')"
-              >
-            </div>            
-            <input type="checkbox" id="TxT1" name="TxT1" value=",``useTxT1``: true"
-              onchange="document.getElementById('serext').style.display = (this.checked)?'none':'block';
-              document.getElementById('lb').style.display = (this.checked)?'none':'block';
-              document.getElementById('lb1').style.display = (this.checked)?'block':'none';
-              ">
-            <label for="TxT1"> use for TxT1</label><br>
-            <div class = labeled>
               <label for="baud">Baudrate:</label>            
               <select name="baud" id="baud" onchange="dorequest('/serial','PATCH','{``baud``: '+this.value+',``config``: ``'+get('sconf','innerHTML')+'``'+((get('TxT1','checked'))?get('TxT1'):'')+'}')">
                 <option value="300">300</option>
                 <option value="600">600</option>
+                <option value="750">750</option>
                 <option value="1200">1200</option>
                 <option value="2400">2400</option>
                 <option value="4800">4800</option>
                 <option value="9600">9600</option>
-
+                <option value="19200">19200</option>
+                <option value="31250">31250</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="74880">74880</option>
                 <option value="115200">115200</option>
+                <option value="230400">230400</option>
+                <option value="250000">250000</option>
+                <option value="460800">460800</option>
+                <option value="500000">500000</option>                               
               </select>
             </div>
-            <fieldset style = "width: 160px;">
+            <fieldset style = "width: 160px; margin-top: -6px;">
               <legend>Configkey: <span id = "sconf">8N1</span></legend>
-              <div class = labeled>
+              <div class = labeled style = "margin-top: 6px;">
                 <label for="bits">Databits:</label>            
                 <select name="bits" id="bits" style = "width: 80px;" onchange="document.getElementById('sconf').innerHTML = this.value+get('parity')+((get('stopbits','checked'))?'2':'1')">
                   <option value="8" selected>8</option>
@@ -141,7 +162,7 @@
                   <option value="5">5</option>
                 </select>
               </div>
-              <div class = labeled>
+              <div class = labeled style = "margin-top: -2px; margin-bottom: 6px;">
                 <label for="parity">Parity:</label>            
                 <select name="parity" id="parity" style = "width: 80px;" onchange="document.getElementById('sconf').innerHTML = get('bits')+this.value+((get('stopbits','checked'))?'2':'1')">
                   <option value="N" selected>None</option>
@@ -152,16 +173,16 @@
               <input type="checkbox" id="stopbits" name="stopbits" onchange="document.getElementById('sconf').innerHTML = get('bits')+get('parity')+((this.checked)?'2':'1')">
               <label for="stopbits"> use 2 stopbits</label>
             </fieldset>
-            <div id="lb" style = "display: block;">
+            <div id="lb" style = "display: block; margin-top: 6px;">
               <input type="checkbox" id="loopback" name="loopback" onchange="dorequest('/serial','PATCH','{``loopback``: '+((this.checked)?'true':'false')+'}')">
               <label for="loopback"> Loopback</label><br>
             </div>
-            <div id="lb1" style = "display: none;">
+            <div id="lb1" style = "display: none; margin-top: 6px;">
               <input type="checkbox" id="loopback1" name="loopback1" onchange="dorequest('/serial','PATCH','{``loopback``: '+((this.checked)?'true':'false')+get('TxT1')+'}')">
               <label for="loopback1"> Loopback</label><br>
             </div>
-            <button type="button" onclick="dorequest('/serial','PATCH','{``debug``: true'+((get('TxT1','checked'))?get('TxT1'):'')+'}')">enabel Debug</button><br>
-            <div id="serext" style = "display: block;">
+            <button type="button" style = "margin-top: 6px;" onclick="dorequest('/serial','PATCH','{``debug``: true'+((get('TxT1','checked'))?get('TxT1'):'')+'}')">enabel Debug</button><br>
+            <div id="serext" style = "display: block; margin-top: 6px;">
               <fieldset style = "width: 160px;">
                 <legend>More:</legend>
                 <button type="button" onclick="dorequest('/serial','PATCH','{``move``: ``TxT``}')">move TxT</button><br><br>

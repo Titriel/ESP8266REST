@@ -28,8 +28,11 @@ void setup() {
   ReIni();
   sysdict["msg"] = "";
   uniBuf[uniBufout] = 0;
+  uniBuf[uniBufin] = 0;
   DefaultHeaders::Instance().addHeader(PSTR("Access-Control-Allow-Origin"), "null");
   DefaultHeaders::Instance().addHeader(PSTR("Access-Control-Allow-Credentials"), "true");
+  delay(100);
+  while (Serial.available() > 0) Serial.read();
 }
 
 void loop() {

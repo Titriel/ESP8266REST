@@ -386,7 +386,7 @@ void aktualSerial(JsonObject &jroot, const String msg){
   jroot["outBufSize"] = uniBufdatastart - uniBufoutstart;
   jroot["GPIO2used"] = ISused_D2;
   JsonObject s0 = jroot.createNestedObject("Serial0");
-  s0["baud"] = Serial.baudRate();
+  s0["baud"] = serial0speed;
   s0["loopback"] = ISen_LoopTXD;
   s0["TxTmoved"] = ISen_MoveTxT;
   s0["swaped"] = ISen_SwapSer;
@@ -401,8 +401,9 @@ void aktualSerial(JsonObject &jroot, const String msg){
 }
 const String doserialset(JsonObject &jreq){
   if(jreq.containsKey("outBufSize")){
-    unsigned short temp = uniBufoutstart + jreq["outBufSize"].as<unsigned short>();
+    unsigned short temp = uniBufoutstart + (jreq["outBufSize"].as<unsigned short>() & 0xFFFC);
     if(temp < s_uniBuf){
+      uniBuf[uniBufoutstart] = 0;
       uniBuf[temp] = 0;
       uniBufdatastart = temp;
     }else{
@@ -410,12 +411,14 @@ const String doserialset(JsonObject &jreq){
     }
   }
   if(jreq.containsKey("inBufSize")){
-    unsigned short inBufSize = jreq["inBufSize"].as<unsigned short>();
+    unsigned short inBufSize = jreq["inBufSize"].as<unsigned short>() & 0xFFFC;
     unsigned short temp = inBufSize + uniBufdatastart - uniBufoutstart;
     if (temp < s_uniBuf){
       uniBuf[inBufSize] = 0;
+      uniBuf[0] = 0;
       uniBufoutstart = inBufSize;
       uniBufdatastart = temp;
+      if (uniBuf[uniBufout] == 0) uniBufout = uniBufoutstart;
     }else{
       return F("Sum of buffers to large."); //409
     }
@@ -457,6 +460,7 @@ const String doserialset(JsonObject &jreq){
     }else{
       serial->begin(bbaud, (SerialConfig) bconfig);
     }
+
   }else if(jreq.containsKey("baud")){
     serial->updateBaudRate(jreq["baud"].as<unsigned int>());
   }
@@ -494,6 +498,10 @@ const String doserialset(JsonObject &jreq){
         use_D15(! ISused_D15 );        
       }
     }
+    serial0speed = Serial.baudRate();
+    unsigned long lastpoint = micros();
+    while (!overmicros(lastpoint, (14400000/serial0speed)));
+    while (Serial.available() > 0) Serial.read();
   }
   return F("Configuration done."); //201
 }

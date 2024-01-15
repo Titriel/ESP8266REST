@@ -14,7 +14,7 @@ unsigned long MillisSince(unsigned long lastpoint){
 }
     
 boolean overmicros(unsigned long lastpoint, long towait){
-  if (towait > MicrosSince(lastpoint)) return false; else return true;
+  return (towait < MicrosSince(lastpoint));
 }
 
 unsigned long MicrosSince(unsigned long lastpoint){
@@ -141,7 +141,7 @@ bool SerialByteRead(){
     dosend = false;
     byte intemp = Serial.read();
     if ISen_LoopTXD Serial.write(intemp);
-    if ( ISen_TXD1 && ISen_LoopTXD )Serial1.write(intemp);
+    if ( ISen_TXD1 && ISen_LoopTXD1 )Serial1.write(intemp);
     btemp[pb--] = intemp;
     if (pb == 255){
       pb = 2;
