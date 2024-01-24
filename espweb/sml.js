@@ -172,32 +172,32 @@ function smltryFindOBISkeys(c){
 
 function getTelegramm(c){
   let res = {'Ok': true, 'c': c, 'decoded':{}};
-  let t = SMLtable['tag'];
-  let data = SMLtable['lastbin'];
-  let hexdata = SMLtable['lasthex'];
+  let t = SMLtable.tag;
+  let data = SMLtable.lastbin;
+  let hexdata = SMLtable.lasthex;
   let hexc = c*2;  
-  if (hexdata.substr(hexc, 8) == t['Escape']){
-    res['Version'] = (hexdata.substr(hexc + 8, 8) == t['V1Start'])?'V1':'V2';
+  if (hexdata.substr(hexc, 8) == t.Escape){
+    res.Version = (hexdata.substr(hexc + 8, 8) == t.V1Start)?'V1':'V2';
     c += 8;
-    while (smldformat(c)['h'] == 7){
+    while (smldformat(c).h == 7){
       let msg = smlgetMsg(c);
-      if (!msg['Ok']){
-        res['failed'] = msg;
-        res['Ok'] = false;
+      if (!msg.Ok){
+        res.failed = msg;
+        res.Ok = false;
         break;
       }
-      if (crc16X25(data.slice(c, res['c'])) !== 0){
-        res['failed'] = {'Ok': false, 'error': "Cheksummenfehler in der Nachricht"};
-        res['Ok'] = false;
+      if (crc16X25(data.slice(c, res.c)) !== 0){
+        res.failed = {'Ok': false, 'error': "Cheksummenfehler in der Nachricht"};
+        res.Ok = false;
       }; 
-      res[bytestohex(msg['data']['transactionId'])] = msg['data'];
-      if (('getListResponse' in msg['data']) && ('OBISlist' in msg['data']['getListResponse'])){
-        res['decoded'] = smlcalcflat(msg['data']['getListResponse']['OBISlist'], 'OBISlist');
-        res['decoded']['actSensorTime'] = smlcalcflat(msg['data']['getListResponse'], 'getListResponse')['actSensorTime'];
+      res[bytestohex(msg.data.transactionId)] = msg.data;
+      if (('getListResponse' in msg.data) && ('OBISlist' in msg.data.getListResponse)){
+        res.decoded = smlcalcflat(msg.data.getListResponse.OBISlist, 'OBISlist');
+        res.decoded.actSensorTime = smlcalcflat(msg.data.getListResponse, 'getListResponse').actSensorTime;
       }
-      c = msg['c'];
+      c = msg.c;
     }
-    res['c'] = c;
+    res.c = c;
   }
   return res;
 }
@@ -206,44 +206,44 @@ function smlgetMsg(c, d = 0, obj = []){
   let res = {'Ok': true, 'data': {}, 'flat': [], 'c': c};
   let f;
   if (d === 0){
-    f = SMLtable['mainframe'];
+    f = SMLtable.mainframe;
   }else if (obj[1] == -1){
     f = SMLtable[obj[0]][obj[2]];
   }else{
-    f = SMLtable['list'][obj[0]];
+    f = SMLtable.list[obj[0]];
   }
 
   let idf = smldformat(c);
   let decdata, block, names;
-  c = idf['c'];
-  if (idf['h'] == 7){
+  c = idf.c;
+  if (idf.h == 7){
     let j = 0;
-    for (let i = 0; i < idf['l']; i++){
+    for (let i = 0; i < idf.l; i++){
       if (typeof f[i - j] === 'string'){
         decdata = smldecodedata(c);
-        if (!decdata['Ok']) return  decdata;
-        res['data'][f[i - j]] = decdata['value'];
-        c = decdata['c'];
+        if (!decdata.Ok) return  decdata;
+        res.data[f[i - j]] = decdata.value;
+        c = decdata.c;
       }else{
         if (f[i - j][1] == -1){
           decdata = smldecodedata(c + 1);
-          if (!decdata['Ok']) return decdata;
-          f[i - j][2] = decdata['value'].toString(16);
-          names = SMLtable['commands'][decdata['value'].toString(16)];
-          block = smlgetMsg(decdata['c'], d + 1, f[i - j]);
-          if (!block['Ok']) return block;
-          res['data'][names] = block['data'];
-          c = block['c'];
+          if (!decdata.Ok) return decdata;
+          f[i - j][2] = decdata.value.toString(16);
+          names = SMLtable.commands[decdata.value.toString(16)];
+          block = smlgetMsg(decdata.c, d + 1, f[i - j]);
+          if (!block.Ok) return block;
+          res.data[names] = block.data;
+          c = block.c;
         }else if (f[i - j][1] === 0){
           decdata = smldecodedata(c + 1)
-          if (!decdata['Ok']) return  decdata;
+          if (!decdata.Ok) return  decdata;
           names = f[i - j][0];
-          let deckey = intfrombytes(decdata['value'], 'big').toString(16);
+          let deckey = intfrombytes(decdata.value, 'big').toString(16);
           if (deckey in SMLtable[names]){          
             block = smlgetMsg(c, d + 1, f[i - j])
-            if (!block['Ok']) return block;
-            res['data'][SMLtable[names][deckey]] = block['data'];
-            c = block['c'];
+            if (!block.Ok) return block;
+            res.data[SMLtable[names][deckey]] = block.data;
+            c = block.c;
             j++;
           }else{
             console.log('unknowen key', deckey, names);
@@ -252,10 +252,10 @@ function smlgetMsg(c, d = 0, obj = []){
           }
         }else{
           block = smlgetMsg(c, d + 1, f[i]);
-          if (!block['Ok']) return block;
+          if (!block.Ok) return block;
           names = f[i - j][0];
-          res['data'][f[i - j][0]] = block['data'];
-          c = block['c'];
+          res.data[f[i - j][0]] = block.data;
+          c = block.c;
         }
       }
     }
@@ -263,51 +263,51 @@ function smlgetMsg(c, d = 0, obj = []){
     console.log(res);
     res = {'Ok': false, 'error': "Unerwartete Blockstruktur"}
   }
-  res['c'] = c;
+  res.c = c;
     //res['flat'] = smlcalcflat(res['data'], names);
   return res
 }
 
 function smldformat (c){
-  let data = SMLtable['lastbin'];
+  let data = SMLtable.lastbin;
   let res ={'h': Math.floor(data[c] / 16) & 7, 'l': 0};
   do{
-    res['l'] = res['l'] * 16 + (data[c++] & 15);
+    res.l = res.l * 16 + (data[c++] & 15);
   }while (data[c - 1] > 127);
-  res['c'] = c;
+  res.c = c;
   return res;
 }
 
 function smldecodedata(c){
-  let data = SMLtable['lastbin'];
+  let data = SMLtable.lastbin;
   let res = {'Ok': false};
   let idf = smldformat(c);
-  c = idf['c'];
-  if (idf['h'] === 0){
-    if (idf['l'] === 0){
-      res['value'] = true;
+  c = idf.c;
+  if (idf.h === 0){
+    if (idf.l === 0){
+      res.value = true;
       c++;
-    }else if (idf['l'] === 1){
-      res['value'] = null;
+    }else if (idf.l === 1){
+      res.value = null;
     }else{
-      res['value'] = data.slice(c, c+idf['l']-1);
+      res.value = data.slice(c, c+idf.l - 1);
     }
-  }else if (idf['h'] === 4){
+  }else if (idf.h === 4){
 
-  }else if (idf['h'] === 5){
-    res['value'] = intfrombytes(data.slice(c, c+idf['l']-1), 'big', true);
-  }else if (idf['h'] === 6){
-    res['value'] = intfrombytes(data.slice(c, c+idf['l']-1), 'big');
-  }else if (idf['h'] === 7){
+  }else if (idf.h === 5){
+    res.value= intfrombytes(data.slice(c, c+idf.l - 1), 'big', true);
+  }else if (idf.h === 6){
+    res.value = intfrombytes(data.slice(c, c+idf.l - 1), 'big');
+  }else if (idf.h === 7){
 
   }else{
 
   }
   if ('value' in res){
-    res['Ok'] = true;
-    res['c'] = c+idf['l']-1;
+    res.Ok = true;
+    res.c = c+idf['l']-1;
   }else{
-    res ['error'] = 'Unerwarteter Datentyp';
+    res.error = 'Unerwarteter Datentyp';
   }
   return res;
 }
@@ -318,29 +318,40 @@ function smlcalcflat(data, names){
   let byteman;
     for (let key in data){
       if (key == 'Manufactor'){
-        byteman = data[key]['value'];
-        res[key] = bytestostr(data[key]['value']);
+        byteman = data[key].value;
+        res[key] = bytestostr(data[key].value);
       }else if (key == 'Server_ID'){
-        if (res['Manufactor'] == 'ESY'){
+        if (res.Manufactor == 'ESY'){
 
-          let srvhex = bytestohex(data[key]['value'], ' ')
-          let b = data[key]['value'];
+          let srvhex = bytestohex(data[key].value, ' ');
+          let b = data[key].value;
           temp = intfrombytes(b.slice(6), 'big').toString();
           temp = ' ' + temp.slice(0, 4) + ' ' + temp.slice(4);
           temp = srvhex.slice(3, 6) + bytestostr(b.slice(2, 5)) + srvhex.slice(14, 17) + temp;
-          res['Key'] = temp;
+          res.Key = temp;
         }
-        res[key] = bytestohex(data[key]['value'], ' ');
+        res[key] = bytestohex(data[key].value, ' ');
       }else{
         let d = data[key];
         //temp = str(d['value'] * pow(10, d['scaler'])) + ' ' + SMLtable['unit'][d['unit']]
-        let temp = d['value'].toString();
-        temp = temp.slice(0, temp.length + d['scaler']) + ',' + temp.slice(d['scaler']) + ' ' + SMLtable['unit'][d['unit'].toString(16)];
+        let temp = d.value.toString();
+        temp = temp.slice(0, temp.length + d.scaler) + ',' + temp.slice(d.scaler) + ' ' + SMLtable.unit[d.unit.toString(16)];
         res[key] = temp;
       }
     }
   }else if (names === 'getListResponse'){
-    res['actSensorTime'] = DateTime(data['actSensorTime']['secIndex'] + SMLtable['timeoffset'][bytestohex(data['serverID'])]);
+    let serverID = bytestohex(data.serverID);
+    if (serverID in SMLtable.timeoffset){
+      if (SMLtable.timeoffset[serverID] > 0){
+        res.actSensorTime = DateTime(data.actSensorTime.secIndex + SMLtable.timeoffset[serverID]);
+      }else{
+        let now = Math.floor(Date.now()/1000);
+        SMLtable.timeoffset[serverID] = now - data.actSensorTime.secIndex;
+        res.actSensorTime = DateTime(now);
+      }
+    }else{
+      res.actSensorTime = data.actSensorTime.secIndex;
+    }
   }
   return res
 }
