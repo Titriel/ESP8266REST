@@ -5,9 +5,13 @@ void preresponce(AsyncWebServerRequest *httpreq, JsonObject &jroot, bool legal =
   jroot["UTC"] = TimeStamp("none");
   if(legal){
     String From = httpreq->header("From");
-    temp = makeMD5(temp+SysHash, false);
-    keydict[From] = temp;
-    //temp += "@" + From;
+    if (From == ""){
+      jroot["msg"] = F("From is peregistert.");
+      keydict[temp.substring(0, 8)] = "";
+    }else{
+      temp = makeMD5(temp+SysHash, false);
+      keydict[From] = temp;
+    }
   }
 }
 
@@ -67,12 +71,26 @@ bool postrequest(AsyncWebServerRequest *httpreq, bool ns = false){
   }
   if((timeStatus() == timeNotSet) && httpreq->hasHeader("X-UTC")){
     setTime(httpreq->header("X-UTC").toInt());
-  }  
+  }    
   if(ns){
+    if ((keydict.size() > 4) && !keydict.containsKey(From)){
+      for (JsonPair kv : keydict) {
+        if (kv.value().as<String>() == ""){
+          keydict.remove(kv.key());
+        }
+      }
+    }  
     if ((keydict.size() > 4) && !keydict.containsKey(From)){
       preresponce(httpreq, jroot, false);
       jroot["msg"] = F("Max sessions (5) reatched !");
       jsonsend(httpreq, jbuf, 503);
+      return false;
+    }else if(From == ""){
+      return true;
+    }else if(!keydict.containsKey(From)){
+      preresponce(httpreq, jroot, false);
+      jroot["msg"] = F("No peregistert From !");
+      jsonsend(httpreq, jbuf, 401);
       return false;
     }else if(temp == makeMD5(SysHash+From, false)){
       return true;
@@ -83,7 +101,7 @@ bool postrequest(AsyncWebServerRequest *httpreq, bool ns = false){
         return true;
       }else{
         keydict.remove(From);
-        sysdoc.garbageCollect();
+        //sysdoc.garbageCollect();
       }
     }
   }
@@ -117,8 +135,8 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
     if (postrequest(httpreq, true)){
       DynamicJsonDocument jbuf(128);
       JsonObject jroot = jbuf.to<JsonObject>();
-      preresponce(httpreq, jroot);
       jroot["msg"] = F("Session established.");
+      preresponce(httpreq, jroot);
       jsonsend(httpreq, jbuf, 201);
       if(runlevel < RL_ServerRunning){
         SendMsg(TX_CanAPIex);
@@ -169,8 +187,8 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
               temp = keydict[httpreq->header("From")].as<String>();
             }
             events.setAuthentication(jreq["user"].as<const char*>(), temp.c_str());
-            server.addHandler(&events);
           }
+          server.addHandler(&events);
         }
         jsonsend(httpreq, jbuf, 201);
         return;
@@ -180,7 +198,7 @@ void handleSession(AsyncWebServerRequest *httpreq, JsonVariant &jvar = jempty){
         String temp = httpreq->header("From");
         if (keydict.containsKey(temp)){
           keydict.remove(temp);
-          sysdoc.garbageCollect();
+          //sysdoc.garbageCollect();
         }
         jroot["msg"] = F("Session deleted.");        
         jsonsend(httpreq, jbuf, 202);

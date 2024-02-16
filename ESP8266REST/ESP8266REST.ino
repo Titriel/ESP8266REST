@@ -163,7 +163,7 @@ void ReIni(){
   LSI_State = 0x0FF;
   if (keydict.size() > 0){
     keydict.clear();
-    sysdoc.garbageCollect();
+    //sysdoc.garbageCollect();
   }
   runlevel = RL_Start;
   Inet = false;

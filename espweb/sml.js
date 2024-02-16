@@ -188,8 +188,8 @@ function getTelegramm(c, decode = true){
         res.Ok = false;
         break;
       }
-      if (crc16X25(data.slice(c, msg.c - 3)) !== msg.data.crc16){
-        res.failed = {'Ok': false, 'error': "Cheksummenfehler in der Nachricht", 'CRC': crc16X25(data.slice(c, msg.c - 3))};
+      if (crc16X25(data.slice(c, msg.c - 4)) !== msg.data.crc16){
+        res.failed = {'Ok': false, 'error': "Cheksummenfehler in der Nachricht", 'CRC': crc16X25(data.slice(c, msg.c - 4))};
         res.Ok = false;
       }; 
       res[bytestohex(msg.data.transactionId)] = msg.data;
@@ -197,7 +197,7 @@ function getTelegramm(c, decode = true){
         if (decode) res.decoded = smlcalcflat(msg.data.getListResponse.OBISlist, 'OBISlist');
         res.decoded.actSensorTime = smlcalcflat(msg.data.getListResponse, 'getListResponse').actSensorTime;
       }
-      c = msg.c + 1;
+      c = msg.c;
     }
     res.c = c;
   }
@@ -289,7 +289,7 @@ function smldecodedata(c, names = ''){
     case 0:
       if (idf.l === 0){
         res.value = true;
-        c++;
+        res.c++;
       }else if (idf.l === 1){
         res.value = null;
       }else{

@@ -57,11 +57,12 @@
 
     <div id="SessionTab" class="tabcontent">
       <h3>Session</h3>
-      <button type="button" onclick="dorequest()">Request Session</button>
+      <button id="RqSession" type="button" onclick="dorequest()">Get Haeder: From</button>
       <button type="button" onclick="dorequest('/','DELETE')">Close Session</button>
       <h3>SSE</h3>
       <button type="button" onclick="startSSE('admin', 'admin')">Start SSE</button>
       <button type="button" onclick="dorequest('/','POST','{``name``: ``Fritz``, ``string``: ``na und``,``event``: ``os`` }')">Send to SSE</button>
+      <button type="button" onclick="dorequest('/','POST','{``name``: ``RxT``, ``string``: ``'+btoa(testdata)+'``,``event``: ``Serial0`` }')">Send to SSE</button>
     </div>    
 
     <div id="SettingsTab" class="tabcontent">

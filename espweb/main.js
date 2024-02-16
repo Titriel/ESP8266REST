@@ -4,7 +4,7 @@ document.getElementById("linfo").innerHTML = "Config:";
 document.getElementById("info").value = config;
 var jconfig = JSON.parse(config);
 const ts = new Date();
-var from = md5(ts.toString()).substring(0, 8);
+var from = ""
 var SysHash = "";
 var Auth = "";
 var jresponce;
@@ -23,6 +23,14 @@ function handelres(call){
                   call.responseText;
     document.getElementById("info").value = restext;
     jresponce = JSON.parse(call.responseText);
+    if (jresponce['msg'] == "From is peregistert."){
+      from = jresponce['UUID'].substring(0, 8);
+      document.getElementById("RqSession").innerHTML="Request Session";
+    }
+    if ((jresponce['msg'] == "Session deleted.") || (call.status == 401)){
+      from = "";
+      document.getElementById("RqSession").innerHTML="Get Haeder: From";
+    }    
     Auth = md5(jresponce.UUID + SysHash);
     /*console.log(jresponce.UUID);
     console.log(call.getResponseHeader("Content-Type"));
@@ -63,7 +71,8 @@ function dorequest(path = "/", methode = "GET", content = "{}") {
 }
 function startSSE(user, pass){
   console.log(window.EventSource);
-  dorequest('/','PUT','{"user": "'+user+'", "pass": "'+pass+'"}');
+  dorequest('/','PUT','{}');
+  //dorequest('/','PUT','{"user": "'+user+'", "pass": "'+pass+'"}');
   if (!EvSo) {
     setTimeout(aktSSE, 500);
   }
@@ -74,7 +83,7 @@ function aktSSE(){
     source.close();
   }
   source = new EventSource("http://"+ip+'/events', {
-    withCredentials: true
+    withCredentials: false
   });
   source.addEventListener('open', function(e) {
     document.getElementById("sse").value += "Events Connected\r\n";
@@ -129,6 +138,7 @@ function changeconfig() {
   document.getElementById("IP").value = jconfig[confitem].ip;
   document.getElementById("Pass").value = jconfig[confitem].pass;
   SysHash =md5(jconfig[confitem].pass)
+  document.getElementById("RqSession").innerHTML="Get Haeder: From";
 }
 function changeedpass() {
   SysHash =md5(document.getElementById("Pass").value);
