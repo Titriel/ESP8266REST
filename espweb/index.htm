@@ -68,7 +68,7 @@
     <div id="SettingsTab" class="tabcontent">
       <button type="button" onclick="dorequest('/config')">Get Config</button>
       <button type="button" onclick="dorequest('/config','DELETE')">Factory setting</button>
-      <button type="button" onclick="dorequest('/config','PATCH','{``ssid``: ``R-Tron-EG``, ``pass``: ``poiuztre``}')">New Settings/Restart</button>
+      <button type="button" onclick="dorequest('/config','PATCH','{``ssid``: ``R-Tron-EG``, ``pass``: ``********``}')">New Settings/Restart</button>
     </div>    
 
     <div id="IOTab" class="tabcontent">
@@ -108,6 +108,9 @@
                     >
                   </div>
                 </td>
+                <td>
+                  <button type="button" onclick="dorequest('/serial','DELETE')">disable TxT1</button>
+                </td>  
                 <td>
                   <input type="checkbox" id="TxT1" name="TxT1" value=",``useTxT1``: true"
                   onchange="document.getElementById('serext').style.display = (this.checked)?'none':'block';
@@ -182,7 +185,7 @@
               <input type="checkbox" id="loopback1" name="loopback1" onchange="dorequest('/serial','PATCH','{``loopback``: '+((this.checked)?'true':'false')+get('TxT1')+'}')">
               <label for="loopback1"> Loopback</label><br>
             </div>
-            <button type="button" style = "margin-top: 6px;" onclick="dorequest('/serial','PATCH','{``debug``: true'+((get('TxT1','checked'))?get('TxT1'):'')+'}')">enabel Debug</button><br>
+            <button type="button" style = "margin-top: 6px;" onclick="dorequest('/serial','PATCH','{``debug``: true'+((get('TxT1','checked'))?get('TxT1'):'')+'}')">enable Debug</button><br>
             <div id="serext" style = "display: block; margin-top: 6px;">
               <fieldset style = "width: 160px;">
                 <legend>More:</legend>
@@ -198,8 +201,8 @@
     <div id="DS18b20Tab" class="tabcontent">
       <button type="button" onclick="dorequest('/ds18b20')">Status ds18b20</button>      
       <button type="button" onclick="dorequest('/ds18b20','POST','{``unit``: ``C[elsius]``}')">Temperaturen</button>
-      <button type="button" onclick="dorequest('/ds18b20','PUT','{``enable``: true}')">Enabel ds18b20</button>
-      <button type="button" onclick="dorequest('/ds18b20','DELETE')">Disabel ds18b20</button>
+      <button type="button" onclick="dorequest('/ds18b20','PUT','{``enable``: true}')">Enable ds18b20</button>
+      <button type="button" onclick="dorequest('/ds18b20','DELETE')">Disable ds18b20</button>
     </div>
 
     

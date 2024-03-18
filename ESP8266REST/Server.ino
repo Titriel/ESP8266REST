@@ -322,7 +322,7 @@ void handleDigital(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
 }
 
 void aktualDs18b20(JsonObject &jroot){
-  jroot["enabeled"] = bool ISen_ds18b20;
+  jroot["enabled"] = bool ISen_ds18b20;
   jroot["GPIO2used"] = bool ISused_D2;
 }
 void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {  
@@ -355,7 +355,7 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
           temp += readTemperatur("    \"" , "" , "\": " , ",\r\n" , "    \"msg\": \"", (toupper(unit[0]) == 'F')) + "\"\r\n  }\r\n}";
           jtextsend(httpreq, temp, 200);
         }else{
-          jroot["msg"] = F("ds18b20 is not enabeld.");
+          jroot["msg"] = F("ds18b20 is not enabled.");
           aktualDs18b20(jroot);
           jsonsend(httpreq, jbuf, 428);
         }
@@ -368,7 +368,7 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
         }
         preresponce(httpreq, jroot);
         if ISen_ds18b20{
-          jroot["msg"] = F("ds18b20 is enabeld.");
+          jroot["msg"] = F("ds18b20 is enabled.");
           aktualDs18b20(jroot);
           jsonsend(httpreq, jbuf, 201);
         }else{
@@ -384,7 +384,7 @@ void handleDs18b20(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty) {
           use_D2(false);
           en_ds18b20(false);
         }
-        jroot["msg"] = F("ds18b20 is disabeld.");
+        jroot["msg"] = F("ds18b20 is disabled.");
         aktualDs18b20(jroot);
         jsonsend(httpreq, jbuf, 202);
         return;
@@ -411,7 +411,7 @@ void aktualSerial(JsonObject &jroot, const String msg){
   s0["GPIO13used"] = ISused_D13;
   s0["GPIO15used"] = ISused_D15;
   JsonObject s1 = jroot.createNestedObject("Serial1");   
-  s1["enabeled"] = ISen_TXD1;
+  s1["enabled"] = ISen_TXD1;
   if ISen_TXD1 {
     s1["baud"] = Serial1.baudRate();
     s1["loopback"] = ISen_LoopTXD1;
@@ -541,7 +541,7 @@ void handleSerialx(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty){
           aktualSerial(jroot, F("SSE not established!"));
           jsonsend(httpreq, jbuf, 428);
         }else if (jreq.containsKey("useTxT1") && ! ISen_TXD1 ){
-          aktualSerial(jroot, F("TxT1 is disabeled!"));
+          aktualSerial(jroot, F("TxT1 is disabled!"));
           jsonsend(httpreq, jbuf, 428);
         }else if (!jreq.containsKey("TxT")){
           aktualSerial(jroot, F("No data to transmit!"));
@@ -573,7 +573,23 @@ void handleSerialx(AsyncWebServerRequest *httpreq, JsonVariant jvar = jempty){
         unsigned short sc = (msg[0] == 'C')?201:409;
         jsonsend(httpreq, jbuf, sc);
         return;
-      }        
+      }
+      case HTTP_DELETE:{
+        preresponce(httpreq, jroot);
+        String msg = F("Serial1 is disabled.");
+        unsigned short sc = 202;
+        if ISen_TXD1{
+          Serial1.end();
+          use_D2(false);
+          en_TXD1(false);
+        }else{
+          msg = F("Serial1 was not enabled.");
+          sc = 428;
+        }
+        aktualSerial(jroot, msg);
+        jsonsend(httpreq, jbuf, sc);
+        return;
+      }              
       default:{
         defaulthandler(httpreq);
         return;
